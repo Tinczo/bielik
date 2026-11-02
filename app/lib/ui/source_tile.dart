@@ -10,7 +10,9 @@ import 'level_format.dart';
 ///
 /// While the musician drags, the new level is sent live but at most once per
 /// [sendInterval]; the final value is always sent on release. A double tap
-/// resets the level to 0 dB.
+/// resets the level to 0 dB. While the slider is held, levels pushed by the
+/// server ([source] changes) are not shown, so the slider does not jump under
+/// the finger; after release it shows [source] again.
 class SourceTile extends StatefulWidget {
   const SourceTile({super.key, required this.source, required this.onLevel});
 

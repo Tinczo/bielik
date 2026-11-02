@@ -99,13 +99,20 @@ class MixerClient {
   }
 
   /// Sets the level of a source of the subscribed monitor. The new level shows
-  /// in [monitor] at once; the server does not confirm it.
+  /// in [monitor] at once; the server echoes it back later as a level push.
   void setLevel(String sourceId, double level) {
     final current = monitor.value;
     if (current == null) return;
     _send(
       setLevelMessage(monitorId: current.id, sourceId: sourceId, level: level),
     );
+    _showLevel(sourceId, level);
+  }
+
+  /// Puts a source's new level into [monitor], whoever changed it.
+  void _showLevel(String sourceId, double level) {
+    final current = monitor.value;
+    if (current == null) return;
     monitor.value = MonitorState(
       id: current.id,
       name: current.name,
@@ -144,6 +151,8 @@ class MixerClient {
       case MonitorMessage(:final monitor):
         // Ignore a late answer for a monitor the musician has already left.
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
+      case LevelMessage(:final monitorId, :final sourceId, :final level):
+        if (monitorId == _subscribedMonitorId) _showLevel(sourceId, level);
       case MonitorRemovedMessage(:final monitorId):
         if (monitorId != _subscribedMonitorId) return;
         _subscribedMonitorId = null;
