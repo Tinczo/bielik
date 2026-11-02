@@ -9,6 +9,12 @@ Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja pro
 - Identyfikatory odsłuchów i źródeł to GUID-y ścieżek w formacie REAPERa, np. `{1B6A2C10-0001-4A3E-9C1D-000000000001}`.
 - Tekst jest w UTF-8.
 
+## Wykrywanie (mDNS)
+
+- Rozszerzenie ogłasza w sieci lokalnej usługę DNS-SD typu `_reaper-mixer._tcp` (domena `local`). Nazwa instancji to nazwa komputera (np. `STUDIO._reaper-mixer._tcp.local`), host `<nazwa komputera>.local`, port to aktualny port WebSocket. Bez rekordów TXT.
+- Przy zmianie portu Rozszerzenie wycofuje ogłoszenie i ogłasza usługę od nowa; przy zamknięciu wycofuje je (rekord „goodbye” z TTL 0).
+- Aplikacja przegląda `_reaper-mixer._tcp`, rozwiązuje instancje na adres i port i łączy się z wybranym laptopem jak z adresem wpisanym ręcznie. Ręczny adres zostaje jako awaryjna droga, gdy sieć blokuje multicast.
+
 ## Uzgadnianie
 
 Klient po połączeniu wysyła `hello`:

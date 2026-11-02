@@ -9,6 +9,7 @@
 #include <string>
 
 #include "reaper/reaper_project_adapter.h"
+#include "transport/mdns_advertiser.h"
 #include "transport/mixer_server.h"
 
 namespace {
@@ -16,6 +17,7 @@ namespace {
 reaper_plugin_info_t* g_rec = nullptr;
 std::unique_ptr<rmm::ReaperProjectAdapter> g_project;
 std::unique_ptr<rmm::MixerServer> g_server;
+std::unique_ptr<rmm::MdnsAdvertiser> g_advertiser;
 
 void onTimer() {
   if (g_server) g_server->pump();
@@ -25,6 +27,7 @@ void log(const std::string& text) { ShowConsoleMsg(("[reaper_mobile_mixer] " + t
 
 void shutdown() {
   if (g_rec) g_rec->Register("-timer", reinterpret_cast<void*>(&onTimer));
+  g_advertiser.reset();  // withdraws the mDNS announcement
   if (g_server) g_server->stop();
   g_server.reset();
   g_project.reset();
@@ -52,6 +55,10 @@ extern "C" REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_H
     log("cannot listen on port " + std::to_string(rmm::kDefaultPort) + ": " + error);
     g_server.reset();
     return 1;  // stay loaded; nothing to serve
+  }
+  g_advertiser = std::make_unique<rmm::MdnsAdvertiser>();
+  if (!g_advertiser->announce(rmm::kDefaultPort, &error)) {
+    log("cannot announce on the network (enter the address in Bielik by hand): " + error);
   }
   rec->Register("timer", reinterpret_cast<void*>(&onTimer));
   return 1;
