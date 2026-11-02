@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../protocol/messages.dart';
 import '../protocol/mixer_client.dart';
-import 'level_format.dart';
+import 'source_tile.dart';
 
-/// One monitor: its sources and their levels (read-only for now).
+/// One monitor: its sources, each with a slider for its level.
 class MonitorScreen extends StatefulWidget {
   const MonitorScreen({super.key, required this.client, required this.monitor});
 
@@ -48,9 +48,10 @@ class _MonitorScreenState extends State<MonitorScreen> {
             key: const Key('sources'),
             children: [
               for (final source in monitor.sources)
-                ListTile(
-                  title: Text(source.name),
-                  trailing: Text(formatLevelDb(source.level)),
+                SourceTile(
+                  key: ValueKey(source.id),
+                  source: source,
+                  onLevel: (level) => widget.client.setLevel(source.id, level),
                 ),
             ],
           );

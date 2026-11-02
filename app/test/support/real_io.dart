@@ -18,3 +18,21 @@ Future<void> pumpUntilFound(
   }
   fail('timed out waiting for $finder');
 }
+
+/// Like [pumpUntilFound], but waits until [condition] holds.
+Future<void> pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  String description = 'condition',
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+    if (condition()) return;
+  }
+  fail('timed out waiting for $description');
+}

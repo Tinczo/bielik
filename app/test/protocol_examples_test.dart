@@ -47,6 +47,24 @@ void main() {
     );
   });
 
+  test('set_level matches the set-level example', () {
+    final setLevel = loadProtocolExample('set-level.json').steps
+        .map((step) => step['client'])
+        .whereType<Map<String, dynamic>>()
+        .singleWhere((message) => message['type'] == 'set_level');
+    expect(
+      matchesExample(
+        setLevel,
+        setLevelMessage(
+          monitorId: setLevel['monitorId'] as String,
+          sourceId: setLevel['sourceId'] as String,
+          level: (setLevel['level'] as num).toDouble(),
+        ),
+      ),
+      isTrue,
+    );
+  });
+
   test('monitors from the handshake example are decoded in order', () {
     final monitors = loadProtocolExample('handshake.json')
         .serverMessages

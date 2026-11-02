@@ -7,7 +7,8 @@ import 'protocol_examples.dart';
 /// In-process stand-in for the REAPER extension. For every connection it plays
 /// the server's side of a shared protocol example: it waits for each `client`
 /// step (checking that the app sent a matching message) and sends each
-/// `server` step. Mismatches are collected in [problems].
+/// `server` step. Mismatches are collected in [problems]. Whatever the app sends
+/// after the last step is collected in [extraMessages].
 class FakeMixerServer {
   FakeMixerServer._(this._server, this._example) {
     _server.listen(_onRequest);
@@ -24,6 +25,9 @@ class FakeMixerServer {
 
   /// Everything that did not go according to the example.
   final List<String> problems = [];
+
+  /// Decoded messages the app sent after the example's last step, in order.
+  final List<Map<String, dynamic>> extraMessages = [];
 
   String get host => _server.address.address;
   int get port => _server.port;
@@ -54,6 +58,11 @@ class FakeMixerServer {
           'expected ${jsonEncode(step['client'])}, got ${jsonEncode(received)}',
         );
       }
+    }
+    while (await incoming.moveNext()) {
+      extraMessages.add(
+        jsonDecode(incoming.current as String) as Map<String, dynamic>,
+      );
     }
   }
 }

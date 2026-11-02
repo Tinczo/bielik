@@ -68,6 +68,26 @@ class MixerClient {
     _send(subscribeMessage(monitorId));
   }
 
+  /// Sets the level of a source of the subscribed monitor. The new level shows
+  /// in [monitor] at once; the server does not confirm it.
+  void setLevel(String sourceId, double level) {
+    final current = monitor.value;
+    if (current == null) return;
+    _send(
+      setLevelMessage(monitorId: current.id, sourceId: sourceId, level: level),
+    );
+    monitor.value = MonitorState(
+      id: current.id,
+      name: current.name,
+      sources: [
+        for (final source in current.sources)
+          source.id == sourceId
+              ? Source(id: source.id, name: source.name, level: level)
+              : source,
+      ],
+    );
+  }
+
   Future<void> close() async {
     await _subscription.cancel();
     await _socket.close();

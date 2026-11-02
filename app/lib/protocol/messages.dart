@@ -52,6 +52,19 @@ Map<String, Object?> subscribeMessage(String monitorId) => {
       'monitorId': monitorId,
     };
 
+/// Sets the [level] (linear, 1.0 = 0 dB) of one source in one monitor.
+Map<String, Object?> setLevelMessage({
+  required String monitorId,
+  required String sourceId,
+  required double level,
+}) =>
+    {
+      'type': 'set_level',
+      'monitorId': monitorId,
+      'sourceId': sourceId,
+      'level': level,
+    };
+
 Map<String, Object?> helloMessage() => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
