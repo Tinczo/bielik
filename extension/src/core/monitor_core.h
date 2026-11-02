@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -31,6 +32,11 @@ class MonitorCore {
   void clientDisconnected(ClientId client);
   void handleMessage(ClientId client, std::string_view text);
 
+  // Writes the levels requested by set_level since the last call to the project. Called
+  // once per timer tick: many set_level for one receive within a tick write only the last
+  // value.
+  void applyPendingLevels();
+
  private:
   struct Client {
     bool welcomed = false;
@@ -46,6 +52,13 @@ class MonitorCore {
   ReaperProject& project_;
   Send send_;
   std::unordered_map<ClientId, Client> clients_;
+
+  struct PendingLevel {
+    std::string monitorId;
+    std::string sourceId;
+    double level;
+  };
+  std::vector<PendingLevel> pendingLevels_;  // at most one per receive, in arrival order
 };
 
 }  // namespace rmm

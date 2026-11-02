@@ -62,6 +62,8 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     handleSetLevel(client, message);
     return;
   }
+  // Anything else sees the levels requested before it.
+  applyPendingLevels();
 
   sendError(client, "unknown_type", "unknown message type: " + type);
 }
@@ -94,7 +96,20 @@ void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message)
     sendError(client, "not_found", "monitor " + monitorId + " has no source " + sourceId);
     return;
   }
-  project_.setReceiveLevel(monitorId, sourceId, level);
+  for (PendingLevel& pending : pendingLevels_) {
+    if (pending.monitorId == monitorId && pending.sourceId == sourceId) {
+      pending.level = level;
+      return;
+    }
+  }
+  pendingLevels_.push_back({monitorId, sourceId, level});
+}
+
+void MonitorCore::applyPendingLevels() {
+  for (const PendingLevel& pending : pendingLevels_) {
+    project_.setReceiveLevel(pending.monitorId, pending.sourceId, pending.level);
+  }
+  pendingLevels_.clear();
 }
 
 void MonitorCore::sendMonitor(ClientId client, const MonitorState& monitor) {

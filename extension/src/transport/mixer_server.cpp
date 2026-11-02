@@ -26,6 +26,7 @@ void MixerServer::pump() {
         break;
     }
   }
+  core_.applyPendingLevels();
 }
 
 }  // namespace rmm
