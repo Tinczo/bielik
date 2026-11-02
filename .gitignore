@@ -1,0 +1,8 @@
+# Prywatne instrukcje dla Claude
+CLAUDE.local.md
+
+# FVM
+.fvm/
+
+# C++ build
+extension/build/
