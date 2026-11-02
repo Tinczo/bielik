@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../discovery/laptop_discovery.dart';
 import '../protocol/mixer_client.dart';
 import '../storage/password_store.dart';
+import '../storage/session_store.dart';
 import 'connection_status_bar.dart';
 import 'discovered_laptops.dart';
 import 'monitors_screen.dart';
@@ -12,12 +13,21 @@ const int defaultPort = 8790;
 
 /// Connection screen: the band password (remembered after a successful
 /// connection), laptops discovered on the network, plus a manual address as
-/// the fallback when the network blocks multicast.
+/// the fallback when the network blocks multicast. On start it goes back to
+/// the last server (and its last monitor) by itself.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({super.key, required this.passwordStore, this.discovery});
+  const ConnectScreen({
+    super.key,
+    required this.passwordStore,
+    required this.sessionStore,
+    this.discovery,
+    this.keepAlive,
+  });
 
   final PasswordStore passwordStore;
+  final SessionStore sessionStore;
   final LaptopDiscovery? discovery;
+  final Duration? keepAlive;
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -33,7 +43,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPassword();
+    _restore();
+  }
+
+  /// Fills in what was remembered and reconnects to the last server.
+  Future<void> _restore() async {
+    await _loadPassword();
+    final LastSession? session;
+    try {
+      session = await widget.sessionStore.read();
+    } catch (_) {
+      return; // nothing remembered we can use; the musician connects by hand
+    }
+    if (!mounted || session == null || _connecting) return;
+    _host.text = session.host;
+    _port.text = '${session.port}';
+    await _connectTo(
+      session.host,
+      session.port,
+      reopenMonitorId: session.monitorId,
+    );
   }
 
   Future<void> _loadPassword() async {
@@ -66,7 +95,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
     await _connectTo(host, port);
   }
 
-  Future<void> _connectTo(String host, int port) async {
+  Future<void> _connectTo(
+    String host,
+    int port, {
+    String? reopenMonitorId,
+  }) async {
     setState(() {
       _connecting = true;
       _error = null;
@@ -77,12 +110,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
         host: host,
         port: port,
         password: password,
+        keepAlive: widget.keepAlive,
       );
       try {
         await widget.passwordStore.write(password);
       } on Exception {
         // Not remembered this time; the connection itself is fine.
       }
+      await rememberSession(
+        widget.sessionStore,
+        LastSession(host: host, port: port),
+      );
       if (!mounted) {
         await client.close();
         return;
@@ -91,7 +129,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
         MaterialPageRoute<void>(
           builder: (_) => ConnectionStatusBar(
             client: client,
-            child: MonitorsScreen(client: client),
+            child: MonitorsScreen(
+              client: client,
+              sessionStore: widget.sessionStore,
+              reopenMonitorId: reopenMonitorId,
+            ),
           ),
         ),
       );
