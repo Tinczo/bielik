@@ -43,9 +43,11 @@ bool matches(const json& expected, const json& actual) {
   return expected == actual;
 }
 
-FakeProject projectFrom(const json& example) {
-  FakeProject project;
-  for (const auto& track : example["project"]["tracks"]) {
+// Replaces the fake project's contents with a fixture's `project` object.
+void load(FakeProject& project, const json& state) {
+  project.trackList.clear();
+  project.receiveLists.clear();
+  for (const auto& track : state["tracks"]) {
     const std::string guid = track["guid"];
     project.trackList.push_back({guid, track["name"].get<std::string>()});
     for (const auto& receive : track.value("receives", json::array())) {
@@ -53,11 +55,11 @@ FakeProject projectFrom(const json& example) {
           {receive["source"].get<std::string>(), receive["level"].get<double>()});
     }
   }
-  return project;
 }
 
 void replay(const json& example) {
-  FakeProject project = projectFrom(example);
+  FakeProject project;
+  load(project, example["project"]);
   const int port = nextTestPort();
   MixerServer server(project, port, "127.0.0.1");
   std::string error;
@@ -68,7 +70,10 @@ void replay(const json& example) {
   int stepIndex = 0;
   for (const auto& step : example["steps"]) {
     CAPTURE(stepIndex);
-    if (step.contains("client")) {
+    if (step.contains("project")) {  // the project changes in REAPER
+      load(project, step["project"]);
+      project.changed();
+    } else if (step.contains("client")) {
       const json& message = step["client"];
       client.send(message.is_string() ? message.get<std::string>() : message.dump());
     } else {
