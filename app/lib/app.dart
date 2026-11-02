@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'discovery/laptop_discovery.dart';
+import 'history/level_history.dart';
 import 'storage/password_store.dart';
 import 'ui/connect_screen.dart';
 
-class BielikApp extends StatelessWidget {
+class BielikApp extends StatefulWidget {
   const BielikApp({
     super.key,
     this.discovery,
@@ -18,11 +19,24 @@ class BielikApp extends StatelessWidget {
   final PasswordStore passwordStore;
 
   @override
+  State<BielikApp> createState() => _BielikAppState();
+}
+
+class _BielikAppState extends State<BielikApp> {
+  /// Undo history of every monitor, for as long as the app runs.
+  final _histories = LevelHistories();
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Bielik',
       theme: ThemeData(colorSchemeSeed: Colors.brown),
-      home: ConnectScreen(passwordStore: passwordStore, discovery: discovery),
+      builder: (context, child) =>
+          LevelHistoryScope(histories: _histories, child: child!),
+      home: ConnectScreen(
+        passwordStore: widget.passwordStore,
+        discovery: widget.discovery,
+      ),
     );
   }
 }
