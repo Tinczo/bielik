@@ -54,9 +54,13 @@ std::optional<std::string> TestClient::nextMessage(MixerServer& server,
 }
 
 bool TestClient::waitClosed(MixerServer& server, std::chrono::milliseconds timeout) {
+  return waitClosed([&server] { server.pump(); }, timeout);
+}
+
+bool TestClient::waitClosed(const std::function<void()>& pump, std::chrono::milliseconds timeout) {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
-    server.pump();
+    pump();
     std::unique_lock lock(mutex_);
     if (changed_.wait_for(lock, std::chrono::milliseconds(5), [this] { return !open_; })) return true;
   }

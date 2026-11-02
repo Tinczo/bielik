@@ -153,3 +153,61 @@ TEST_CASE("a server that could not start at load can be started by choosing anot
   service.stop();
   squatter.stop();
 }
+
+TEST_CASE("unloading the extension closes the connections and frees the port") {
+  FakeProject project;
+  FakeSettingsStore store;
+  const int port = nextTestPort();
+  store.stored = {port, ""};
+  {
+    MixerService service(project, store, "127.0.0.1");
+    REQUIRE(service.start());
+    TestClient client(port);
+    REQUIRE(client.isOpen());
+    client.send(helloWith("").dump());
+    REQUIRE(client.nextMessage([&service] { service.pump(); }));
+
+    service.stop();
+
+    CHECK(client.waitClosed([] {}));
+    CHECK_FALSE(TestClient(port).isOpen());
+  }
+
+  // REAPER started again: the port can be bound at once.
+  MixerService restarted(project, store, "127.0.0.1");
+  std::string error;
+  CHECK_MESSAGE(restarted.start(&error), error);
+  restarted.stop();
+}
+
+TEST_CASE("destroying a running service without stop() still shuts it down cleanly") {
+  FakeProject project;
+  FakeSettingsStore store;
+  const int port = nextTestPort();
+  store.stored = {port, ""};
+  auto service = std::make_unique<MixerService>(project, store, "127.0.0.1");
+  REQUIRE(service->start());
+  TestClient client(port);
+  REQUIRE(client.isOpen());
+
+  service.reset();
+
+  CHECK(client.waitClosed([] {}));
+  MixerService restarted(project, store, "127.0.0.1");
+  CHECK(restarted.start());
+  restarted.stop();
+}
+
+TEST_CASE("stopping twice, or stopping a service that never started, is harmless") {
+  FakeProject project;
+  FakeSettingsStore store;
+  store.stored = {nextTestPort(), ""};
+  MixerService neverStarted(project, store, "127.0.0.1");
+  neverStarted.stop();
+
+  MixerService service(project, store, "127.0.0.1");
+  REQUIRE(service.start());
+  service.stop();
+  service.stop();
+  service.pump();
+}

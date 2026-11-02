@@ -38,6 +38,9 @@ class TestClient {
 
   // Waits until the server closes the connection, pumping the server meanwhile.
   bool waitClosed(MixerServer& server, std::chrono::milliseconds timeout = std::chrono::seconds(2));
+  // Same, with any main-thread pump (or none, e.g. after the server stopped).
+  bool waitClosed(const std::function<void()>& pump,
+                  std::chrono::milliseconds timeout = std::chrono::seconds(2));
 
  private:
   std::unique_ptr<ix::WebSocket> socket_;
