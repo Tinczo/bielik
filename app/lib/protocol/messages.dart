@@ -65,9 +65,10 @@ Map<String, Object?> setLevelMessage({
       'level': level,
     };
 
-Map<String, Object?> helloMessage() => {
+Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
+      'password': password,
     };
 
 /// A message sent by the server.

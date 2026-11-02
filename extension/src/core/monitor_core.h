@@ -25,8 +25,14 @@ class MonitorCore {
  public:
   // Called for every outgoing text message.
   using Send = std::function<void(ClientId, std::string)>;
+  // Called to close a client's connection, after the messages already sent to it.
+  using Close = std::function<void(ClientId)>;
 
-  MonitorCore(ReaperProject& project, Send send);
+  MonitorCore(ReaperProject& project, Send send, Close close = {});
+
+  // The band password hello must carry; empty means hello may omit it. Applies to the
+  // next hello, connections already welcomed stay.
+  void setPassword(std::string password);
 
   void clientConnected(ClientId client);
   void clientDisconnected(ClientId client);
@@ -48,9 +54,12 @@ class MonitorCore {
   void sendMonitor(ClientId client, const MonitorState& monitor);
   void sendError(ClientId client, std::string_view code, std::string_view message);
   void sendJson(ClientId client, const nlohmann::json& message);
+  void refuse(ClientId client, std::string_view code, std::string_view message);
 
   ReaperProject& project_;
   Send send_;
+  Close close_;
+  std::string password_;
   std::unordered_map<ClientId, Client> clients_;
 
   struct PendingLevel {

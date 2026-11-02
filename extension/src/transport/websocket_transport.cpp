@@ -95,6 +95,14 @@ void WebSocketTransport::send(ClientId client, std::string text) {
   outboxReady_.notify_one();
 }
 
+void WebSocketTransport::close(ClientId client) {
+  {
+    std::lock_guard lock(outboxMutex_);
+    outbox_.push_back({client, {}, true});
+  }
+  outboxReady_.notify_one();
+}
+
 void WebSocketTransport::pushEvent(Event event) {
   std::lock_guard lock(inboxMutex_);
   inbox_.push_back(std::move(event));
@@ -112,7 +120,12 @@ void WebSocketTransport::senderLoop() {
     }
     std::lock_guard lock(connectionsMutex_);
     const auto it = connections_.find(message.client);
-    if (it != connections_.end()) it->second->sendText(message.text);
+    if (it == connections_.end()) continue;
+    if (message.close) {
+      it->second->close();
+    } else {
+      it->second->sendText(message.text);
+    }
   }
 }
 

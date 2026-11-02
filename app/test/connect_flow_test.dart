@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_mixer_server.dart';
+import 'support/in_memory_password_store.dart';
 import 'support/protocol_examples.dart';
 import 'support/real_io.dart';
 
@@ -14,7 +15,7 @@ void main() {
     ))!;
     addTearDown(() => tester.runAsync(server.close));
 
-    await tester.pumpWidget(const BielikApp());
+    await tester.pumpWidget(BielikApp(passwordStore: InMemoryPasswordStore()));
     expect(find.text('Bielik'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('host')), server.host);
@@ -29,7 +30,7 @@ void main() {
 
   testWidgets('musician sees an error when nothing listens at the address',
       (tester) async {
-    await tester.pumpWidget(const BielikApp());
+    await tester.pumpWidget(BielikApp(passwordStore: InMemoryPasswordStore()));
 
     await tester.enterText(find.byKey(const Key('host')), '127.0.0.1');
     await tester.enterText(find.byKey(const Key('port')), '1');

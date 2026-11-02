@@ -4,9 +4,12 @@ namespace rmm {
 
 MixerServer::MixerServer(ReaperProject& project, int port, std::string host)
     : transport_(std::move(host), port),
-      core_(project, [this](ClientId client, std::string text) {
-        transport_.send(client, std::move(text));
-      }) {}
+      core_(
+          project,
+          [this](ClientId client, std::string text) { transport_.send(client, std::move(text)); },
+          [this](ClientId client) { transport_.close(client); }) {}
+
+void MixerServer::setPassword(std::string password) { core_.setPassword(std::move(password)); }
 
 bool MixerServer::start(std::string* error) { return transport_.start(error); }
 

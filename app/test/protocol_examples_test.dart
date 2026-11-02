@@ -32,6 +32,11 @@ void main() {
     expect(matchesExample(hello, helloMessage()), isTrue);
   });
 
+  test('hello carries the password as in the password example', () {
+    final hello = loadProtocolExample('password.json').steps.first['client'];
+    expect(matchesExample(hello, helloMessage(password: 'próba2026')), isTrue);
+  });
+
   test('subscribe matches the subscribe example', () {
     final example = loadProtocolExample('subscribe.json');
     final subscribe = example.steps

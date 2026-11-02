@@ -20,6 +20,7 @@ set(USE_TLS OFF CACHE BOOL "" FORCE)
 set(USE_ZLIB OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(ixwebsocket
   URL https://github.com/machinezone/IXWebSocket/archive/refs/tags/v11.4.6.tar.gz
+  PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/patch_ixwebsocket.cmake
 )
 FetchContent_MakeAvailable(ixwebsocket)
 
