@@ -33,12 +33,38 @@ Finder _levelIn(String row, String level) =>
 bool _enabled(WidgetTester tester, Finder button) =>
     tester.widget<IconButton>(button).onPressed != null;
 
+/// subscribe.json's monitor, then (after [FakeMixerServer.changeProject])
+/// Gitara removed from it in REAPER.
+ProtocolExample _guitarRemoved() {
+  final steps = loadProtocolExample('subscribe.json').steps;
+  final monitor = steps.last['server'] as Map<String, dynamic>;
+  return ProtocolExample('guitar-removed', {
+    'steps': [
+      ...steps,
+      {'project': <String, dynamic>{}},
+      {
+        'server': {
+          ...monitor,
+          'sources': [
+            for (final source in monitor['sources'] as List)
+              if ((source as Map)['id'] != _guitarId) source,
+          ],
+        },
+      },
+    ],
+  });
+}
+
 Future<FakeMixerServer> _startServer(
   WidgetTester tester, [
-  String example = 'subscribe.json',
+  Object example = 'subscribe.json',
 ]) async {
   final server = (await tester.runAsync(
-    () => FakeMixerServer.start(loadProtocolExample(example)),
+    () => FakeMixerServer.start(
+      example is ProtocolExample
+          ? example
+          : loadProtocolExample(example as String),
+    ),
   ))!;
   addTearDown(() => tester.runAsync(server.close));
   return server;
@@ -56,7 +82,7 @@ Future<void> _openMonitor(WidgetTester tester, FakeMixerServer server) async {
 
 Future<FakeMixerServer> _startAndOpen(
   WidgetTester tester, [
-  String example = 'subscribe.json',
+  Object example = 'subscribe.json',
 ]) async {
   final server = await _startServer(tester, example);
   await tester.pumpWidget(BielikApp(passwordStore: InMemoryPasswordStore()));
@@ -194,6 +220,26 @@ void main() {
 
     expect(await _press(tester, server, _undo), _setLevel(_guitarId, 1.0));
     expect(_levelIn('Gitara', '0.0 dB'), findsOneWidget);
+    expect(_enabled(tester, _undo), isFalse);
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('steps for a source the monitor no longer has are skipped', (
+    tester,
+  ) async {
+    final server = await _startAndOpen(tester, _guitarRemoved());
+    await _silence(tester, server, _vocalId, waitForServer: false);
+    await _silence(tester, server, _guitarId, waitForServer: false);
+
+    server.changeProject(); // Gitara removed from the monitor in REAPER
+    await _waitForLevel(tester, server, _guitarId, 0.0);
+    await pumpUntil(
+      tester,
+      () => _rowOf('Gitara').evaluate().isEmpty,
+      description: 'Gitara gone',
+    );
+
+    expect(await _press(tester, server, _undo), _setLevel(_vocalId, 1.0));
     expect(_enabled(tester, _undo), isFalse);
     expect(server.problems, isEmpty);
   });
