@@ -18,13 +18,17 @@ std::unique_ptr<rmm::ReaperProjectAdapter> g_project;
 std::unique_ptr<rmm::MixerServer> g_server;
 
 void onTimer() {
+  if (g_project) g_project->poll();  // change notifications first, then client messages
   if (g_server) g_server->pump();
 }
 
 void log(const std::string& text) { ShowConsoleMsg(("[reaper_mobile_mixer] " + text + "\n").c_str()); }
 
 void shutdown() {
-  if (g_rec) g_rec->Register("-timer", reinterpret_cast<void*>(&onTimer));
+  if (g_rec) {
+    g_rec->Register("-timer", reinterpret_cast<void*>(&onTimer));
+    if (g_project) g_rec->Register("-csurf_inst", g_project->controlSurface());
+  }
   if (g_server) g_server->stop();
   g_server.reset();
   g_project.reset();
@@ -53,6 +57,7 @@ extern "C" REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_H
     g_server.reset();
     return 1;  // stay loaded; nothing to serve
   }
+  rec->Register("csurf_inst", g_project->controlSurface());
   rec->Register("timer", reinterpret_cast<void*>(&onTimer));
   return 1;
 }
