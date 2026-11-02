@@ -8,6 +8,7 @@
 
 #include <nlohmann/json_fwd.hpp>
 
+#include "core/monitors.h"
 #include "core/reaper_project.h"
 
 namespace rmm {
@@ -39,9 +40,11 @@ class MonitorCore {
  private:
   struct Client {
     bool welcomed = false;
+    std::string subscribedMonitor;  // GUID, empty when not subscribed
   };
 
   void sendMonitors(ClientId client);
+  void sendMonitor(ClientId client, const MonitorState& monitor);
   void sendError(ClientId client, std::string_view code, std::string_view message);
   void sendJson(ClientId client, const nlohmann::json& message);
   void refuse(ClientId client, std::string_view code, std::string_view message);

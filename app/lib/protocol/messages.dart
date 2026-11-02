@@ -22,6 +22,36 @@ class Monitor {
   String toString() => 'Monitor($id, $name)';
 }
 
+/// A source ("źródło") of a monitor: a track the monitor receives audio from.
+class Source {
+  const Source({required this.id, required this.name, required this.level});
+
+  /// GUID of the source track.
+  final String id;
+  final String name;
+
+  /// Receive volume, linear: 1.0 = 0 dB, 0 = -inf.
+  final double level;
+}
+
+/// Full state of one monitor: its sources in receive order.
+class MonitorState {
+  const MonitorState({
+    required this.id,
+    required this.name,
+    required this.sources,
+  });
+
+  final String id;
+  final String name;
+  final List<Source> sources;
+}
+
+Map<String, Object?> subscribeMessage(String monitorId) => {
+      'type': 'subscribe',
+      'monitorId': monitorId,
+    };
+
 Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
@@ -46,6 +76,20 @@ sealed class ServerMessage {
                 name: monitor['name'] as String,
               ),
           ]),
+        'monitor' => MonitorMessage(
+            MonitorState(
+              id: json['id'] as String,
+              name: json['name'] as String,
+              sources: [
+                for (final source in json['sources'] as List)
+                  Source(
+                    id: source['id'] as String,
+                    name: source['name'] as String,
+                    level: (source['level'] as num).toDouble(),
+                  ),
+              ],
+            ),
+          ),
         'error' => ErrorMessage(
             json['code'] as String,
             json['message'] as String? ?? '',
@@ -66,6 +110,11 @@ class WelcomeMessage extends ServerMessage {
 class MonitorsMessage extends ServerMessage {
   const MonitorsMessage(this.monitors);
   final List<Monitor> monitors;
+}
+
+class MonitorMessage extends ServerMessage {
+  const MonitorMessage(this.monitor);
+  final MonitorState monitor;
 }
 
 class ErrorMessage extends ServerMessage {
