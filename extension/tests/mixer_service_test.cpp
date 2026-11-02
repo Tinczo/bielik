@@ -153,3 +153,33 @@ TEST_CASE("a server that could not start at load can be started by choosing anot
   service.stop();
   squatter.stop();
 }
+
+TEST_CASE("project changes still reach clients after the port changed") {
+  FakeProject project;
+  FakeSettingsStore store;
+  const int takenPort = nextTestPort();
+  const int newPort = nextTestPort();
+  FakeProject otherProject;
+  MixerServer squatter(otherProject, takenPort, "127.0.0.1");
+  REQUIRE(squatter.start());
+  store.stored = {nextTestPort(), ""};
+  MixerService service(project, store, "127.0.0.1");
+  REQUIRE(service.start());
+  CHECK_FALSE(service.applySettings({takenPort, ""}));  // a failed attempt changes nothing
+  REQUIRE(service.applySettings({newPort, ""}));
+
+  TestClient client(newPort);
+  client.send(helloWith("").dump());
+  const auto pump = [&service] { service.pump(); };
+  REQUIRE(client.nextMessage(pump).has_value());  // welcome
+  REQUIRE(client.nextMessage(pump).has_value());  // monitors
+
+  project.trackList.push_back({"{1B6A2C10-0010-4A3E-9C1D-000000000010}", "Odsłuch: Wokal"});
+  project.changed();
+
+  const json message = json::parse(client.nextMessage(pump).value_or("{}"));
+  CHECK(message["type"] == "monitors");
+  CHECK(message["monitors"].size() == 1);
+  service.stop();
+  squatter.stop();
+}
