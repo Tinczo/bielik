@@ -299,4 +299,27 @@ void main() {
     expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
     expect(server.problems, isEmpty);
   });
+
+  testWidgets('the history keeps the last 50 steps of a monitor', (
+    tester,
+  ) async {
+    final server = await _startAndOpen(tester);
+    // 51 gestures on Gitara: 0.5 -> 1.0 -> 0.0 -> 1.0 -> ... -> 1.0.
+    for (var i = 0; i < 51; i++) {
+      if (i.isEven) {
+        await _reset(tester, server, _guitarId);
+      } else {
+        await _silence(tester, server, _guitarId);
+      }
+    }
+
+    for (var i = 0; i < 50; i++) {
+      expect(_enabled(tester, _undo), isTrue, reason: 'undo #${i + 1}');
+      await _press(tester, server, _undo);
+    }
+    // The first gesture (from 0.5) is forgotten.
+    expect(_setLevels(server).last, _setLevel(_guitarId, 1.0));
+    expect(_enabled(tester, _undo), isFalse);
+    expect(server.problems, isEmpty);
+  });
 }

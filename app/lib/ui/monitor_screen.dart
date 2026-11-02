@@ -133,7 +133,11 @@ class _MonitorScreenState extends State<MonitorScreen> {
                   source: source,
                   onLevel: (level) => widget.client.setLevel(source.id, level),
                   onGesture: (before, after) => _history.record(
-                    LevelStep(sourceId: source.id, before: before, after: after),
+                    LevelStep(
+                      sourceId: source.id,
+                      before: before,
+                      after: after,
+                    ),
                   ),
                 ),
             ],
