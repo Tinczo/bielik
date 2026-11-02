@@ -8,7 +8,8 @@
 
 namespace rmm::testing {
 
-// In-memory REAPER project. Tests edit `trackList` and `receiveLists` directly.
+// In-memory REAPER project. Tests edit `trackList` and `receiveLists` directly, then call
+// changed() like the real adapter does when REAPER reports a change.
 class FakeProject : public ReaperProject {
  public:
   std::vector<Track> trackList;
@@ -20,6 +21,8 @@ class FakeProject : public ReaperProject {
     const auto found = receiveLists.find(trackGuid);
     return found == receiveLists.end() ? std::vector<Receive>{} : found->second;
   }
+
+  void changed() const { notifyChanged(); }
 };
 
 }  // namespace rmm::testing

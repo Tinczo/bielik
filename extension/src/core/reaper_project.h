@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rmm {
@@ -21,6 +23,12 @@ struct Receive {
 // Called on the main thread only.
 class ReaperProject {
  public:
+  // Called on the main thread when something in the active project may have changed:
+  // tracks added/removed/moved/renamed, receives changed, receive levels changed,
+  // another project became active. Spurious calls are allowed; listeners re-read the
+  // project and compare with what they already know.
+  using ChangeListener = std::function<void()>;
+
   virtual ~ReaperProject() = default;
 
   // All tracks of the active project, in project order.
@@ -29,6 +37,18 @@ class ReaperProject {
   // Receives of the track with this GUID, in REAPER's receive order. Empty if the track
   // has none or does not exist.
   virtual std::vector<Receive> receives(const std::string& trackGuid) const = 0;
+
+  // One listener at a time; an empty function removes it.
+  void setChangeListener(ChangeListener listener) { listener_ = std::move(listener); }
+
+ protected:
+  // Implementations call this when they detect a (possible) change.
+  void notifyChanged() const {
+    if (listener_) listener_();
+  }
+
+ private:
+  ChangeListener listener_;
 };
 
 }  // namespace rmm

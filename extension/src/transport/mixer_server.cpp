@@ -2,11 +2,16 @@
 
 namespace rmm {
 
-MixerServer::MixerServer(const ReaperProject& project, int port, std::string host)
-    : transport_(std::move(host), port),
+MixerServer::MixerServer(ReaperProject& project, int port, std::string host)
+    : project_(project),
+      transport_(std::move(host), port),
       core_(project, [this](ClientId client, std::string text) {
         transport_.send(client, std::move(text));
-      }) {}
+      }) {
+  project_.setChangeListener([this] { core_.projectChanged(); });
+}
+
+MixerServer::~MixerServer() { project_.setChangeListener({}); }
 
 bool MixerServer::start(std::string* error) { return transport_.start(error); }
 
