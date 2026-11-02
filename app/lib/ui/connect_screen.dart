@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../discovery/laptop_discovery.dart';
 import '../protocol/mixer_client.dart';
 import '../storage/password_store.dart';
+import 'discovered_laptops.dart';
 import 'monitors_screen.dart';
 
 /// Default port of the REAPER extension (docs/protocol.md).
 const int defaultPort = 8790;
 
-/// Manual address entry: the musician types the laptop's address and port,
-/// and the band password, which Bielik remembers after a successful connection.
+/// Connection screen: the band password (remembered after a successful
+/// connection), laptops discovered on the network, plus a manual address as
+/// the fallback when the network blocks multicast.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({super.key, required this.passwordStore});
+  const ConnectScreen({
+    super.key,
+    required this.passwordStore,
+    this.discovery,
+  });
 
   final PasswordStore passwordStore;
+  final LaptopDiscovery? discovery;
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -32,7 +40,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<void> _loadPassword() async {
-    final password = await widget.passwordStore.read();
+    final String? password;
+    try {
+      password = await widget.passwordStore.read();
+    } on Exception {
+      return; // nothing remembered we can use; the musician types it
+    }
     if (mounted && password != null && _password.text.isEmpty) {
       _password.text = password;
     }
@@ -53,6 +66,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
       setState(() => _error = 'Podaj adres i port laptopa.');
       return;
     }
+    await _connectTo(host, port);
+  }
+
+  Future<void> _connectTo(String host, int port) async {
     setState(() {
       _connecting = true;
       _error = null;
@@ -64,7 +81,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
         port: port,
         password: password,
       );
-      await widget.passwordStore.write(password);
+      try {
+        await widget.passwordStore.write(password);
+      } on Exception {
+        // Not remembered this time; the connection itself is fine.
+      }
       if (!mounted) {
         await client.close();
         return;
@@ -102,6 +123,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
+            key: const Key('password'),
+            controller: _password,
+            decoration: const InputDecoration(labelText: 'Hasło zespołu'),
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+          ),
+          const SizedBox(height: 16),
+          if (widget.discovery case final discovery?) ...[
+            DiscoveredLaptops(
+              discovery: discovery,
+              enabled: !_connecting,
+              onSelected: (laptop) => _connectTo(laptop.host, laptop.port),
+            ),
+            const SizedBox(height: 16),
+          ],
+          TextField(
             key: const Key('host'),
             controller: _host,
             decoration: const InputDecoration(
@@ -115,14 +153,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
             controller: _port,
             decoration: const InputDecoration(labelText: 'Port'),
             keyboardType: TextInputType.number,
-          ),
-          TextField(
-            key: const Key('password'),
-            controller: _password,
-            decoration: const InputDecoration(labelText: 'Hasło zespołu'),
-            obscureText: true,
-            enableSuggestions: false,
-            autocorrect: false,
           ),
           const SizedBox(height: 16),
           FilledButton(

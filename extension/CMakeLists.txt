@@ -30,14 +30,16 @@ target_include_directories(monitor_core PUBLIC src)
 target_link_libraries(monitor_core PUBLIC nlohmann_json::nlohmann_json)
 rmm_compile_options(monitor_core)
 
-# Transport: WebSocket server on its own thread, queues to and from the main thread.
+# Transport: WebSocket server on its own thread, queues to and from the main thread,
+# and the mDNS announcement (Windows DNS-SD API from dnsapi).
 add_library(transport STATIC
   src/transport/websocket_transport.cpp
   src/transport/mixer_server.cpp
   src/transport/mixer_service.cpp
+  src/transport/mdns_advertiser.cpp
 )
 target_include_directories(transport PUBLIC src)
-target_link_libraries(transport PUBLIC monitor_core ixwebsocket)
+target_link_libraries(transport PUBLIC monitor_core ixwebsocket dnsapi)
 rmm_compile_options(transport)
 
 # The REAPER extension itself: reaper_mobile_mixer.dll, drop into UserPlugins.

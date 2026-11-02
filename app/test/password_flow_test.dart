@@ -1,7 +1,9 @@
 import 'package:bielik/app.dart';
+import 'package:bielik/discovery/laptop_discovery.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fake_laptop_discovery.dart';
 import 'support/fake_mixer_server.dart';
 import 'support/in_memory_password_store.dart';
 import 'support/protocol_examples.dart';
@@ -60,6 +62,27 @@ void main() {
     await tester.pump();
 
     await connect(tester, server);
+
+    await pumpUntilFound(tester, find.text('Wokal'));
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('tapping a discovered laptop uses the remembered password',
+      (tester) async {
+    final server = await startServer(tester, 'password.json');
+    final discovery = FakeLaptopDiscovery();
+    await tester.pumpWidget(
+      BielikApp(
+        discovery: discovery,
+        passwordStore: InMemoryPasswordStore('próba2026'),
+      ),
+    );
+    discovery.found([
+      DiscoveredLaptop(name: 'STUDIO', host: server.host, port: server.port),
+    ]);
+    await tester.pump();
+
+    await tester.tap(find.text('STUDIO'));
 
     await pumpUntilFound(tester, find.text('Wokal'));
     expect(server.problems, isEmpty);
