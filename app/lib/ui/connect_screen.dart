@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../discovery/laptop_discovery.dart';
 import '../protocol/mixer_client.dart';
+import 'discovered_laptops.dart';
 import 'monitors_screen.dart';
 
 /// Default port of the REAPER extension (docs/protocol.md).
 const int defaultPort = 8790;
 
-/// Manual address entry: the musician types the laptop's address and port.
+/// Connection screen: laptops discovered on the network, plus a manual
+/// address as the fallback when the network blocks multicast.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({super.key});
+  const ConnectScreen({super.key, this.discovery});
+
+  final LaptopDiscovery? discovery;
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -34,6 +39,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
       setState(() => _error = 'Podaj adres i port laptopa.');
       return;
     }
+    await _connectTo(host, port);
+  }
+
+  Future<void> _connectTo(String host, int port) async {
     setState(() {
       _connecting = true;
       _error = null;
@@ -66,6 +75,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (widget.discovery case final discovery?) ...[
+            DiscoveredLaptops(
+              discovery: discovery,
+              enabled: !_connecting,
+              onSelected: (laptop) => _connectTo(laptop.host, laptop.port),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             key: const Key('host'),
             controller: _host,
