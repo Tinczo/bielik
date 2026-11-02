@@ -48,6 +48,7 @@ Każda inna wiadomość przed `welcome` dostaje `error` z kodem `handshake_requi
 
 - Odsłuch to ścieżka aktywnego projektu, której nazwa zaczyna się od `Odsłuch:`. `name` to reszta nazwy bez prefiksu, przycięta z białych znaków.
 - Kolejność jak w projekcie. Pusta lista, gdy projekt nie ma odsłuchów.
+- Serwer wysyła `monitors` ponownie (zawsze pełną listę), gdy lista się zmieni: odsłuch dodany, usunięty, przemianowany, przestawiony albo przełączono projekt w REAPERze. Bez faktycznej różnicy nic nie wysyła.
 
 ## Subskrypcja odsłuchu
 
@@ -101,6 +102,18 @@ Klient ustawia poziom źródła w odsłuchu wiadomością `set_level`:
 
 Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, level, 0)`, czyli jak ruch suwaka na kontrolerze: UI miksera się odświeża. Wybrane zamiast `CSurf_OnRecvVolumeChange`, bo tak samo robi wbudowany web remote REAPERa (`csurf_www.cpp`), a argument `isend` pozwala jawnie powiedzieć „ruch w trakcie” (`0`). Łącze nie ma końca gestu, więc Rozszerzenie nigdy nie wysyła „koniec edycji” (`1`), który tworzy punkt undo — dzięki temu wiadomości z telefonów nie zaśmiecają historii undo. Do potwierdzenia ręcznie w REAPERze 7.24.
 
+## Zmiany struktury na żywo
+
+- Gdy w subskrybowanym odsłuchu zmieni się lista źródeł (receive dodany lub usunięty, ścieżka-źródło usunięta) albo nazwa odsłuchu lub źródła, serwer wysyła ponownie pełny `monitor`. Sama zmiana poziomów nie powoduje wysłania `monitor`.
+- Odsłuchy i źródła są identyfikowane po GUID, więc przesunięcie ścieżek w projekcie niczego nie zmienia (poza kolejnością w `monitors`, jeśli przesunięto odsłuch).
+- Gdy subskrybowany odsłuch przestaje istnieć (ścieżka usunięta, nazwa zmieniona na taką bez prefiksu, przełączenie projektu), serwer wysyła najpierw nowe `monitors`, a potem:
+
+```json
+{ "type": "monitor_removed", "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" }
+```
+
+  Subskrypcja się kończy; żeby znów oglądać odsłuch, klient wysyła `subscribe`.
+
 ## Błędy
 
 ```json
@@ -138,5 +151,6 @@ Format pliku:
 - `settings` (opcjonalne) — ustawienia Rozszerzenia, np. `{ "password": "próba2026" }`. Bez tego pola hasło jest puste.
 - `project` — stan projektu REAPERa, na którym stoi serwer (fałszywy projekt w testach Rozszerzenia). Ścieżka może mieć opcjonalne `receives`: `[{ "source": "<GUID ścieżki-źródła>", "level": 0.5 }]` w kolejności receive'ów.
 - `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em). Krok `{ "closed": true }` znaczy, że serwer zamyka połączenie.
+- Krok `project` (obiekt jak `project` wyżej) to zmiana w REAPERze: od tego miejsca projekt ma dokładnie taki stan (np. dodana ścieżka, zmieniona nazwa, inny projekt). Test Rozszerzenia podmienia fałszywy projekt i zgłasza zmianę; fałszywy serwer Aplikacji czeka w tym miejscu, aż test pozwoli mu iść dalej.
 - Dopasowanie wiadomości: każde pole z przykładu musi wystąpić w prawdziwej wiadomości z tą samą wartością; obiekty mogą mieć dodatkowe pola (np. `message` w `error`), a tablice muszą mieć te same elementy w tej samej kolejności.
 - Po ostatnim kroku serwer nie wysyła już nic, a połączenie zostaje otwarte (chyba że przykład kończy się krokiem `closed`).

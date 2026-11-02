@@ -3,11 +3,15 @@
 namespace rmm {
 
 MixerServer::MixerServer(ReaperProject& project, int port, std::string host)
-    : transport_(std::move(host), port),
+    : project_(project),
+      transport_(std::move(host), port),
       core_(
           project,
           [this](ClientId client, std::string text) { transport_.send(client, std::move(text)); },
-          [this](ClientId client) { transport_.close(client); }) {}
+          [this](ClientId client) { transport_.close(client); }),
+      changeListener_(project_.addChangeListener([this] { core_.projectChanged(); })) {}
+
+MixerServer::~MixerServer() { project_.removeChangeListener(changeListener_); }
 
 void MixerServer::setPassword(std::string password) { core_.setPassword(std::move(password)); }
 

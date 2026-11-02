@@ -29,6 +29,7 @@ custom_action_register_t g_settingsAction = {0, "REAPER_MOBILE_MIXER_SETTINGS",
 int g_settingsCommand = 0;
 
 void onTimer() {
+  if (g_project) g_project->poll();  // change notifications first, then client messages
   if (g_service) g_service->pump();
 }
 
@@ -66,6 +67,7 @@ void shutdown() {
     g_rec->Register("-timer", reinterpret_cast<void*>(&onTimer));
     g_rec->Register("-hookcommand2", reinterpret_cast<void*>(&onAction));
     g_rec->Register("-custom_action", &g_settingsAction);
+    if (g_project) g_rec->Register("-csurf_inst", g_project->controlSurface());
   }
   g_advertiser.reset();  // withdraws the mDNS announcement
   if (g_service) g_service->stop();
@@ -101,6 +103,7 @@ extern "C" REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_H
     log("cannot listen on port " + std::to_string(g_service->settings().port) + ": " + error +
         " (change it with the action \"Mobile mixer: Settings\")");
   }
+  rec->Register("csurf_inst", g_project->controlSurface());
   g_settingsCommand = rec->Register("custom_action", &g_settingsAction);
   rec->Register("hookcommand2", reinterpret_cast<void*>(&onAction));
   rec->Register("timer", reinterpret_cast<void*>(&onTimer));

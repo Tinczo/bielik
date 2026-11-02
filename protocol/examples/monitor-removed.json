@@ -1,0 +1,56 @@
+{
+  "description": "The watched monitor stops being a monitor (here its track is renamed without the 'Odsłuch:' prefix; deleting the track or switching to another project works the same): the client gets the new monitors list, then monitor_removed, and is no longer subscribed.",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 1.0 }]
+      },
+      { "guid": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Odsłuch: Perkusja" }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 1 } },
+    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [
+          { "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" },
+          { "id": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Perkusja" }
+        ]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [{ "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 1.0 }]
+      }
+    },
+    {
+      "project": {
+        "tracks": [
+          { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+          {
+            "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+            "name": "Wokal mix",
+            "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 1.0 }]
+          },
+          { "guid": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Odsłuch: Perkusja" }
+        ]
+      }
+    },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [{ "id": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Perkusja" }]
+      }
+    },
+    { "server": { "type": "monitor_removed", "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } }
+  ]
+}

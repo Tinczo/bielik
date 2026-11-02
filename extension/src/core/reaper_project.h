@@ -1,6 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rmm {
@@ -21,6 +24,12 @@ struct Receive {
 // Called on the main thread only.
 class ReaperProject {
  public:
+  // Called on the main thread when something in the active project may have changed:
+  // tracks added/removed/moved/renamed, receives changed, receive levels changed,
+  // another project became active. Spurious calls are allowed; listeners re-read the
+  // project and compare with what they already know.
+  using ChangeListener = std::function<void()>;
+
   virtual ~ReaperProject() = default;
 
   // All tracks of the active project, in project order.
@@ -34,6 +43,29 @@ class ReaperProject {
   // the source track, the way a control surface would. Returns false if there is none.
   virtual bool setReceiveLevel(const std::string& trackGuid, const std::string& sourceGuid,
                                double level) = 0;
+
+  // Listening does not change the project, hence const. Returns a handle for
+  // removeChangeListener().
+  int addChangeListener(ChangeListener listener) const {
+    listeners_.emplace_back(++lastListenerId_, std::move(listener));
+    return lastListenerId_;
+  }
+  void removeChangeListener(int handle) const {
+    listeners_.erase(std::remove_if(listeners_.begin(), listeners_.end(),
+                                    [handle](const auto& entry) { return entry.first == handle; }),
+                     listeners_.end());
+  }
+
+ protected:
+  // Implementations call this when they detect a (possible) change.
+  void notifyChanged() const {
+    const auto listeners = listeners_;  // a listener may add or remove listeners
+    for (const auto& entry : listeners) entry.second();
+  }
+
+ private:
+  mutable std::vector<std::pair<int, ChangeListener>> listeners_;
+  mutable int lastListenerId_ = 0;
 };
 
 }  // namespace rmm

@@ -2,6 +2,7 @@ add_executable(extension_tests
   main.cpp
   test_client.cpp
   protocol_examples_test.cpp
+  live_structure_test.cpp
   mixer_service_test.cpp
   set_level_test.cpp
 )

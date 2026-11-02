@@ -13,9 +13,13 @@ inline constexpr int kDefaultPort = 8790;
 
 // The extension's server: WebSocket transport wired to the monitors core.
 // pump() must be called on the main thread (REAPER timer in production, by hand in tests).
+// Listens to the project's changes for its whole lifetime.
 class MixerServer {
  public:
   MixerServer(ReaperProject& project, int port, std::string host = "0.0.0.0");
+  ~MixerServer();
+  MixerServer(const MixerServer&) = delete;
+  MixerServer& operator=(const MixerServer&) = delete;
 
   bool start(std::string* error = nullptr);
   void stop();
@@ -27,8 +31,10 @@ class MixerServer {
   void pump();
 
  private:
+  const ReaperProject& project_;
   WebSocketTransport transport_;
   MonitorCore core_;
+  int changeListener_;
 };
 
 }  // namespace rmm

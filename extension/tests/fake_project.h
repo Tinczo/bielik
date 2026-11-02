@@ -8,8 +8,10 @@
 
 namespace rmm::testing {
 
-// In-memory REAPER project. Tests edit `trackList` and `receiveLists` directly and read
-// the levels the server wrote from `levelWrites`.
+// In-memory REAPER project. Tests edit `trackList` and `receiveLists` directly, then call
+// changed() like the real adapter does when REAPER reports a change. Levels the server
+// wrote are in `levelWrites`; like REAPER reporting a receive volume change, each write
+// also notifies the change listeners.
 class FakeProject : public ReaperProject {
  public:
   std::vector<Track> trackList;
@@ -36,11 +38,14 @@ class FakeProject : public ReaperProject {
       if (receive.sourceGuid == sourceGuid) {
         receive.level = level;
         levelWrites.push_back({trackGuid, sourceGuid, level});
+        notifyChanged();
         return true;
       }
     }
     return false;
   }
+
+  void changed() const { notifyChanged(); }
 };
 
 }  // namespace rmm::testing

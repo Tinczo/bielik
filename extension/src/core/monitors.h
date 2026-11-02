@@ -15,6 +15,11 @@ inline constexpr std::string_view kMonitorPrefix = "Odsłuch:";
 struct Monitor {
   std::string id;    // track GUID
   std::string name;  // track name without the prefix, trimmed
+
+  friend bool operator==(const Monitor& a, const Monitor& b) {
+    return a.id == b.id && a.name == b.name;
+  }
+  friend bool operator!=(const Monitor& a, const Monitor& b) { return !(a == b); }
 };
 
 // A source of a monitor ("Źródło"): the track one of the monitor's receives comes from.
