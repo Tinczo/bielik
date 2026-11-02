@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'discovery/laptop_discovery.dart';
+import 'platform/screen_wake_lock.dart';
 import 'storage/password_store.dart';
 import 'storage/session_store.dart';
 import 'ui/connect_screen.dart';
@@ -11,6 +12,7 @@ class BielikApp extends StatelessWidget {
     this.discovery,
     this.passwordStore = const SecurePasswordStore(),
     this.sessionStore = const PreferencesSessionStore(),
+    this.screenWakeLock = const WakelockPlusScreenWakeLock(),
     this.keepAlive,
   });
 
@@ -22,6 +24,9 @@ class BielikApp extends StatelessWidget {
 
   /// Remembers the last server and monitor, to go back to them on start.
   final SessionStore sessionStore;
+
+  /// Keeps the screen on while a monitor is open.
+  final ScreenWakeLock screenWakeLock;
 
   /// How often to check that the laptop still answers (see
   /// `MixerClient.connect`); null relies on the socket closing.
@@ -35,6 +40,7 @@ class BielikApp extends StatelessWidget {
       home: ConnectScreen(
         passwordStore: passwordStore,
         sessionStore: sessionStore,
+        screenWakeLock: screenWakeLock,
         discovery: discovery,
         keepAlive: keepAlive,
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../platform/screen_wake_lock.dart';
 import '../protocol/messages.dart';
 import '../protocol/mixer_client.dart';
 import '../storage/session_store.dart';
@@ -12,6 +13,7 @@ class MonitorsScreen extends StatefulWidget {
     super.key,
     required this.client,
     required this.sessionStore,
+    required this.screenWakeLock,
     this.reopenMonitorId,
   });
 
@@ -19,6 +21,9 @@ class MonitorsScreen extends StatefulWidget {
 
   /// Remembers the monitor the musician opens.
   final SessionStore sessionStore;
+
+  /// Keeps the screen on while a monitor is open.
+  final ScreenWakeLock screenWakeLock;
 
   /// Monitor to open as soon as the list arrives, if it is still there (the
   /// one open when Bielik last ran).
@@ -64,9 +69,12 @@ class _MonitorsScreenState extends State<MonitorsScreen> {
     );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ConnectionStatusBar(
-          client: client,
-          child: MonitorScreen(client: client, monitor: monitor),
+        builder: (_) => KeepScreenOn(
+          wakeLock: widget.screenWakeLock,
+          child: ConnectionStatusBar(
+            client: client,
+            child: MonitorScreen(client: client, monitor: monitor),
+          ),
         ),
       ),
     );

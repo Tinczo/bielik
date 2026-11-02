@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../discovery/laptop_discovery.dart';
+import '../platform/screen_wake_lock.dart';
 import '../protocol/mixer_client.dart';
 import '../storage/password_store.dart';
 import '../storage/session_store.dart';
@@ -20,12 +21,14 @@ class ConnectScreen extends StatefulWidget {
     super.key,
     required this.passwordStore,
     required this.sessionStore,
+    required this.screenWakeLock,
     this.discovery,
     this.keepAlive,
   });
 
   final PasswordStore passwordStore;
   final SessionStore sessionStore;
+  final ScreenWakeLock screenWakeLock;
   final LaptopDiscovery? discovery;
   final Duration? keepAlive;
 
@@ -132,6 +135,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             child: MonitorsScreen(
               client: client,
               sessionStore: widget.sessionStore,
+              screenWakeLock: widget.screenWakeLock,
               reopenMonitorId: reopenMonitorId,
             ),
           ),
