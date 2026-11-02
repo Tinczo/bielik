@@ -6,6 +6,8 @@
 #include <string_view>
 #include <unordered_map>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include "core/reaper_project.h"
 
 namespace rmm {
@@ -33,7 +35,9 @@ class MonitorCore {
     bool welcomed = false;
   };
 
-  void sendJson(ClientId client, const std::string& json);
+  void sendMonitors(ClientId client);
+  void sendError(ClientId client, std::string_view code, std::string_view message);
+  void sendJson(ClientId client, const nlohmann::json& message);
 
   const ReaperProject& project_;
   Send send_;

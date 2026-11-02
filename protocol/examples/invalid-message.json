@@ -1,0 +1,19 @@
+{
+  "description": "Text that is not a JSON object with a string 'type', or a message with missing or wrong fields, gets an 'invalid_message' error; the connection stays open. A client step given as a string is sent verbatim.",
+  "project": { "tracks": [] },
+  "steps": [
+    { "client": "this is not json" },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": "[1, 2, 3]" },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "protocolVersion": 1 } },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "type": "hello" } },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "type": "hello", "protocolVersion": "1" } },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "type": "hello", "protocolVersion": 1 } },
+    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    { "server": { "type": "monitors", "monitors": [] } }
+  ]
+}
