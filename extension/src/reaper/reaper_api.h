@@ -9,6 +9,9 @@
 #define REAPERAPI_WANT_GetTrackGUID
 #define REAPERAPI_WANT_guidToString
 #define REAPERAPI_WANT_GetSetMediaTrackInfo_String
+#define REAPERAPI_WANT_GetTrackNumSends
+#define REAPERAPI_WANT_GetSetTrackSendInfo
+#define REAPERAPI_WANT_GetTrackSendInfo_Value
 #define REAPERAPI_WANT_ShowConsoleMsg
 
 #include <reaper_plugin.h>

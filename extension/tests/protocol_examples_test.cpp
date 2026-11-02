@@ -46,7 +46,12 @@ bool matches(const json& expected, const json& actual) {
 FakeProject projectFrom(const json& example) {
   FakeProject project;
   for (const auto& track : example["project"]["tracks"]) {
-    project.trackList.push_back({track["guid"].get<std::string>(), track["name"].get<std::string>()});
+    const std::string guid = track["guid"];
+    project.trackList.push_back({guid, track["name"].get<std::string>()});
+    for (const auto& receive : track.value("receives", json::array())) {
+      project.receiveLists[guid].push_back(
+          {receive["source"].get<std::string>(), receive["level"].get<double>()});
+    }
   }
   return project;
 }

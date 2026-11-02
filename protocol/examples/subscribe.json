@@ -1,0 +1,43 @@
+{
+  "description": "subscribe -> full monitor state: its sources are the monitor track's receives, in receive order, named after the source tracks, with linear levels (1.0 = 0 dB, 0 = -inf). A second receive from the same source is not shown.",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      { "guid": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [
+          { "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 },
+          { "source": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "level": 1.0 },
+          { "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.25 },
+          { "source": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "level": 0 }
+        ]
+      }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 1 } },
+    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [{ "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" }]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 },
+          { "id": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal", "level": 1.0 },
+          { "id": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja", "level": 0 }
+        ]
+      }
+    }
+  ]
+}
