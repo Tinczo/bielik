@@ -34,6 +34,7 @@ rmm_compile_options(monitor_core)
 add_library(transport STATIC
   src/transport/websocket_transport.cpp
   src/transport/mixer_server.cpp
+  src/transport/mixer_service.cpp
 )
 target_include_directories(transport PUBLIC src)
 target_link_libraries(transport PUBLIC monitor_core ixwebsocket)
