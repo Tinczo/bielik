@@ -11,7 +11,17 @@ Muzycy ustawiają z telefonu poziomy źródeł w swoich odsłuchach w REAPERze. 
 
 ## Flutter
 
-Zawsze przez FVM (`fvm flutter …`, `fvm dart …`), nigdy globalny `flutter`.
+Zawsze przez FVM (`fvm flutter …`, `fvm dart …`), nigdy globalny `flutter`. Wersja przypięta w `app/.fvmrc`. Testy: `fvm flutter test` w `app/`.
+
+## Rozszerzenie (C++)
+
+MSVC + Ninja przez presety CMake. `extension/msvc.cmd` uruchamia polecenie w środowisku MSVC x64 (nie używaj MinGW ani generatora Visual Studio — ten drugi psuje się na lokalnym AutoRun cmd). W `extension/`:
+
+- `.\msvc.cmd cmake --preset default` (konfiguracja, pobiera zależności),
+- `.\msvc.cmd cmake --build --preset default` (wynik: `build\reaper_mobile_mixer.dll`, do wrzucenia do `%APPDATA%\REAPER\UserPlugins`),
+- `.\msvc.cmd ctest --preset default`.
+
+Wspólne przykłady protokołu dla testów obu stron: `protocol/examples/` (format w `docs/protocol.md`).
 
 ## Agent skills
 
