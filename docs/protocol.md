@@ -68,6 +68,29 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
 - Klient subskrybuje naraz jeden odsłuch; kolejny `subscribe` zastępuje poprzedni.
 - Nieznany `monitorId` (także GUID ścieżki, która nie jest odsłuchem) → `error` z kodem `not_found`. Brak `monitorId` albo nie-string → `invalid_message`.
 
+## Zmiana poziomu źródła
+
+Klient ustawia poziom źródła w odsłuchu wiadomością `set_level`:
+
+```json
+{
+  "type": "set_level",
+  "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+  "sourceId": "{1B6A2C10-0002-4A3E-9C1D-000000000002}",
+  "level": 0.5
+}
+```
+
+- `level` liniowo jak w `monitor` (`1.0` = 0 dB, `0` = −∞), liczba skończona ≥ 0. Krzywą suwaka i konwersję na dB robi Aplikacja.
+- Zmienia się głośność jednego receive'a: pierwszego receive'a ścieżki `monitorId` ze ścieżki `sourceId`. To samo źródło w innych odsłuchach się nie zmienia.
+- Serwer nie odpowiada na udane `set_level`; nowy poziom widać w kolejnym stanie odsłuchu.
+- Klient nie musi subskrybować odsłuchu, któremu zmienia poziom.
+- Serwer zlewa wiele `set_level` dla tego samego receive'a, które przyszły w jednym takcie timera, i zapisuje tylko ostatnią wartość. Inna wiadomość klienta widzi już wszystkie poziomy zmienione przed nią.
+- Aplikacja wysyła w trakcie gestu najwyżej ~25 `set_level` na sekundę i zawsze wysyła wartość końcową po puszczeniu suwaka.
+- Brak lub zły typ `monitorId`, `sourceId`, `level`, a także `level` ujemny → `invalid_message`. Nieznany odsłuch albo źródło, którego ten odsłuch nie ma → `not_found`.
+
+Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, level, 0)`, czyli jak ruch suwaka na kontrolerze: UI miksera się odświeża. Wybrane zamiast `CSurf_OnRecvVolumeChange`, bo tak samo robi wbudowany web remote REAPERa (`csurf_www.cpp`), a argument `isend` pozwala jawnie powiedzieć „ruch w trakcie” (`0`). Łącze nie ma końca gestu, więc Rozszerzenie nigdy nie wysyła „koniec edycji” (`1`), który tworzy punkt undo — dzięki temu wiadomości z telefonów nie zaśmiecają historii undo. Do potwierdzenia ręcznie w REAPERze 7.24.
+
 ## Błędy
 
 ```json
@@ -81,7 +104,7 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
 | `handshake_required` | wiadomość inna niż `hello` przed `welcome` |
 | `invalid_message` | tekst, który nie jest obiektem JSON ze stringowym `type`, albo brakujące lub złego typu pola (np. `hello` bez całkowitego `protocolVersion`) |
 | `unknown_type` | nieznany `type` po `welcome` |
-| `not_found` | nieznany GUID odsłuchu (np. w `subscribe`) |
+| `not_found` | nieznany GUID odsłuchu (np. w `subscribe`) albo źródło, którego odsłuch nie ma (`set_level`) |
 
 ## Wspólne przykłady (test kontraktu)
 
