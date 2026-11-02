@@ -23,5 +23,5 @@ Natywna wtyczka REAPERa, która udostępnia odsłuchy w sieci lokalnej i przyjmu
 _Avoid_: serwerek, serwer, plugin, web remote
 
 **Aplikacja**:
-Aplikacja na telefon, w której muzyk wybiera swój odsłuch i ustawia poziomy źródeł.
+Aplikacja na telefon, w której muzyk wybiera swój odsłuch i ustawia poziomy źródeł. Nazwa produktu: **Bielik** (logo: głowa orła).
 _Avoid_: klient, mikser, apka

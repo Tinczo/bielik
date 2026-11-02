@@ -12,3 +12,17 @@ Muzycy ustawiają z telefonu poziomy źródeł w swoich odsłuchach w REAPERze. 
 ## Flutter
 
 Zawsze przez FVM (`fvm flutter …`, `fvm dart …`), nigdy globalny `flutter`.
+
+## Agent skills
+
+### Issue tracker
+
+Zgłoszenia i specyfikacje to pliki markdown w `.scratch/<funkcja>/` w repozytorium. Zobacz `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Pięć domyślnych ról (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), zapisywanych w linii `Status:` pliku zgłoszenia. Zobacz `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Układ single-context: `GLOSSARY.md` i `docs/adr/` w katalogu głównym. Zobacz `docs/agents/domain.md`.
