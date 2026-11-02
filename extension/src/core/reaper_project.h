@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <utility>
@@ -38,17 +39,28 @@ class ReaperProject {
   // has none or does not exist.
   virtual std::vector<Receive> receives(const std::string& trackGuid) const = 0;
 
-  // One listener at a time; an empty function removes it.
-  void setChangeListener(ChangeListener listener) { listener_ = std::move(listener); }
+  // Listening does not change the project, hence const. Returns a handle for
+  // removeChangeListener().
+  int addChangeListener(ChangeListener listener) const {
+    listeners_.emplace_back(++lastListenerId_, std::move(listener));
+    return lastListenerId_;
+  }
+  void removeChangeListener(int handle) const {
+    listeners_.erase(std::remove_if(listeners_.begin(), listeners_.end(),
+                                    [handle](const auto& entry) { return entry.first == handle; }),
+                     listeners_.end());
+  }
 
  protected:
   // Implementations call this when they detect a (possible) change.
   void notifyChanged() const {
-    if (listener_) listener_();
+    const auto listeners = listeners_;  // a listener may add or remove listeners
+    for (const auto& entry : listeners) entry.second();
   }
 
  private:
-  ChangeListener listener_;
+  mutable std::vector<std::pair<int, ChangeListener>> listeners_;
+  mutable int lastListenerId_ = 0;
 };
 
 }  // namespace rmm

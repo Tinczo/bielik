@@ -16,7 +16,7 @@ inline constexpr int kDefaultPort = 8790;
 // Listens to the project's changes for its whole lifetime.
 class MixerServer {
  public:
-  MixerServer(ReaperProject& project, int port, std::string host = "0.0.0.0");
+  MixerServer(const ReaperProject& project, int port, std::string host = "0.0.0.0");
   ~MixerServer();
   MixerServer(const MixerServer&) = delete;
   MixerServer& operator=(const MixerServer&) = delete;
@@ -24,13 +24,17 @@ class MixerServer {
   bool start(std::string* error = nullptr);
   void stop();
 
+  // Band password checked in hello; empty by default.
+  void setPassword(std::string password);
+
   // Main thread: delivers queued network events to the core.
   void pump();
 
  private:
-  ReaperProject& project_;
+  const ReaperProject& project_;
   WebSocketTransport transport_;
   MonitorCore core_;
+  int changeListener_;
 };
 
 }  // namespace rmm

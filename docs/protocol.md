@@ -4,18 +4,28 @@ Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja pro
 
 ## Transport
 
-- WebSocket bez TLS (sieć lokalna), domyślny port **8790** (nie 8080, którego używa web remote REAPERa).
+- WebSocket bez TLS (sieć lokalna), domyślny port **8790** (nie 8080, którego używa web remote REAPERa). Port i hasło zespołu ustawia się w REAPERze akcją „Mobile mixer: Settings (port, band password)...”; zapisują się w ExtState, a zmiana portu restartuje serwer bez restartu REAPERa.
 - Każda wiadomość to jedna ramka tekstowa z obiektem JSON, który ma pole `type` (string). Ramki binarne są ignorowane.
 - Identyfikatory odsłuchów i źródeł to GUID-y ścieżek w formacie REAPERa, np. `{1B6A2C10-0001-4A3E-9C1D-000000000001}`.
 - Tekst jest w UTF-8.
 
+## Wykrywanie (mDNS)
+
+- Rozszerzenie ogłasza w sieci lokalnej usługę DNS-SD typu `_reaper-mixer._tcp` (domena `local`). Nazwa instancji to nazwa komputera (np. `STUDIO._reaper-mixer._tcp.local`), host `<nazwa komputera>.local`, port to aktualny port WebSocket. Bez rekordów TXT.
+- Przy zmianie portu Rozszerzenie wycofuje ogłoszenie i ogłasza usługę od nowa; przy zamknięciu wycofuje je (rekord „goodbye” z TTL 0).
+- Aplikacja przegląda `_reaper-mixer._tcp`, rozwiązuje instancje na adres i port i łączy się z wybranym laptopem jak z adresem wpisanym ręcznie. Ręczny adres zostaje jako awaryjna droga, gdy sieć blokuje multicast.
+
 ## Uzgadnianie
 
-Klient po połączeniu wysyła `hello`:
+Klient po połączeniu wysyła `hello` z wersją protokołu i hasłem zespołu:
 
 ```json
-{ "type": "hello", "protocolVersion": 1 }
+{ "type": "hello", "protocolVersion": 1, "password": "próba2026" }
 ```
+
+- `password` (string) to hasło zespołu ustawione w Rozszerzeniu. Brak pola znaczy to samo co pusty string; gdy w Rozszerzeniu nie ustawiono hasła, `hello` może je pominąć.
+- Serwer najpierw sprawdza wersję, potem hasło. Inna wersja niż serwera → `error` `unsupported_version`, złe hasło → `error` `bad_password`; w obu przypadkach serwer zaraz potem zamyka połączenie.
+- Zmiana hasła w Rozszerzeniu działa od następnego `hello`; połączenia już przyjęte zostają.
 
 Serwer odpowiada `welcome` ze swoją wersją protokołu, a zaraz po nim wysyła `monitors`:
 
@@ -87,12 +97,14 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
 { "type": "error", "code": "unknown_type", "message": "unknown message type: make_coffee" }
 ```
 
-`code` jest dla programu, `message` dla człowieka (do logów, bez gwarancji treści). Błąd nie zamyka połączenia.
+`code` jest dla programu, `message` dla człowieka (do logów, bez gwarancji treści). Błąd nie zamyka połączenia, z wyjątkiem odmowy w uzgadnianiu (`unsupported_version`, `bad_password`).
 
 | `code` | Kiedy |
 |---|---|
 | `handshake_required` | wiadomość inna niż `hello` przed `welcome` |
-| `invalid_message` | tekst, który nie jest obiektem JSON ze stringowym `type`, albo brakujące lub złego typu pola (np. `hello` bez całkowitego `protocolVersion`) |
+| `invalid_message` | tekst, który nie jest obiektem JSON ze stringowym `type`, albo brakujące lub złego typu pola (np. `hello` bez całkowitego `protocolVersion` albo z `password`, które nie jest stringiem) |
+| `unsupported_version` | `protocolVersion` w `hello` inny niż wersja serwera; serwer zamyka połączenie |
+| `bad_password` | złe hasło w `hello`; serwer zamyka połączenie |
 | `unknown_type` | nieznany `type` po `welcome` |
 | `not_found` | nieznany GUID odsłuchu (np. w `subscribe`) |
 
@@ -113,8 +125,9 @@ Format pliku:
 }
 ```
 
+- `settings` (opcjonalne) — ustawienia Rozszerzenia, np. `{ "password": "próba2026" }`. Bez tego pola hasło jest puste.
 - `project` — stan projektu REAPERa, na którym stoi serwer (fałszywy projekt w testach Rozszerzenia). Ścieżka może mieć opcjonalne `receives`: `[{ "source": "<GUID ścieżki-źródła>", "level": 0.5 }]` w kolejności receive'ów.
-- `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em).
+- `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em). Krok `{ "closed": true }` znaczy, że serwer zamyka połączenie.
 - Krok `project` (obiekt jak `project` wyżej) to zmiana w REAPERze: od tego miejsca projekt ma dokładnie taki stan (np. dodana ścieżka, zmieniona nazwa, inny projekt). Test Rozszerzenia podmienia fałszywy projekt i zgłasza zmianę; fałszywy serwer Aplikacji czeka w tym miejscu, aż test pozwoli mu iść dalej.
 - Dopasowanie wiadomości: każde pole z przykładu musi wystąpić w prawdziwej wiadomości z tą samą wartością; obiekty mogą mieć dodatkowe pola (np. `message` w `error`), a tablice muszą mieć te same elementy w tej samej kolejności.
-- Po ostatnim kroku serwer nie wysyła już nic, a połączenie zostaje otwarte.
+- Po ostatnim kroku serwer nie wysyła już nic, a połączenie zostaje otwarte (chyba że przykład kończy się krokiem `closed`).

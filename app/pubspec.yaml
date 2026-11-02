@@ -7,8 +7,10 @@ environment:
   sdk: ^3.13.5
 
 dependencies:
+  bonsoir: ^7.1.6
   flutter:
     sdk: flutter
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

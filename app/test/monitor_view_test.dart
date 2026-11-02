@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_mixer_server.dart';
+import 'support/in_memory_password_store.dart';
 import 'support/protocol_examples.dart';
 import 'support/real_io.dart';
 
@@ -15,7 +16,7 @@ void main() {
       ))!;
       addTearDown(() => tester.runAsync(server.close));
 
-      await tester.pumpWidget(const BielikApp());
+      await tester.pumpWidget(BielikApp(passwordStore: InMemoryPasswordStore()));
       await tester.enterText(find.byKey(const Key('host')), server.host);
       await tester.enterText(find.byKey(const Key('port')), '${server.port}');
       await tester.tap(find.text('Połącz'));

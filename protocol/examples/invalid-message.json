@@ -12,6 +12,8 @@
     { "server": { "type": "error", "code": "invalid_message" } },
     { "client": { "type": "hello", "protocolVersion": "1" } },
     { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "type": "hello", "protocolVersion": 1, "password": 1234 } },
+    { "server": { "type": "error", "code": "invalid_message" } },
     { "client": { "type": "hello", "protocolVersion": 1 } },
     { "server": { "type": "welcome", "protocolVersion": 1 } },
     { "server": { "type": "monitors", "monitors": [] } }

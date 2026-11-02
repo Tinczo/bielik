@@ -21,8 +21,10 @@ bool sameStructure(const MonitorState& a, const MonitorState& b) {
 
 }  // namespace
 
-MonitorCore::MonitorCore(const ReaperProject& project, Send send)
-    : project_(project), send_(std::move(send)) {}
+MonitorCore::MonitorCore(const ReaperProject& project, Send send, Close close)
+    : project_(project), send_(std::move(send)), close_(std::move(close)) {}
+
+void MonitorCore::setPassword(std::string password) { password_ = std::move(password); }
 
 void MonitorCore::clientConnected(ClientId client) { clients_[client] = {}; }
 
@@ -44,6 +46,19 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     }
     if (!message.contains("protocolVersion") || !message["protocolVersion"].is_number_integer()) {
       sendError(client, "invalid_message", "hello needs an integer 'protocolVersion'");
+      return;
+    }
+    if (message.contains("password") && !message["password"].is_string()) {
+      sendError(client, "invalid_message", "hello 'password' must be a string");
+      return;
+    }
+    if (message["protocolVersion"] != kProtocolVersion) {
+      refuse(client, "unsupported_version",
+             "server speaks protocol version " + std::to_string(kProtocolVersion));
+      return;
+    }
+    if (message.value("password", std::string()) != password_) {
+      refuse(client, "bad_password", "wrong password");
       return;
     }
     state.welcomed = true;
@@ -116,6 +131,12 @@ void MonitorCore::sendMonitors(ClientId client, std::vector<Monitor> monitors) {
 
 void MonitorCore::sendError(ClientId client, std::string_view code, std::string_view message) {
   sendJson(client, {{"type", "error"}, {"code", code}, {"message", message}});
+}
+
+void MonitorCore::refuse(ClientId client, std::string_view code, std::string_view message) {
+  sendError(client, code, message);
+  clients_.erase(client);
+  if (close_) close_(client);
 }
 
 void MonitorCore::sendJson(ClientId client, const nlohmann::json& message) {

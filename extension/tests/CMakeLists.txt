@@ -3,6 +3,7 @@ add_executable(extension_tests
   test_client.cpp
   protocol_examples_test.cpp
   live_structure_test.cpp
+  mixer_service_test.cpp
 )
 target_link_libraries(extension_tests PRIVATE transport doctest::doctest)
 target_compile_definitions(extension_tests PRIVATE

@@ -52,9 +52,10 @@ Map<String, Object?> subscribeMessage(String monitorId) => {
       'monitorId': monitorId,
     };
 
-Map<String, Object?> helloMessage() => {
+Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
+      'password': password,
     };
 
 /// A message sent by the server.

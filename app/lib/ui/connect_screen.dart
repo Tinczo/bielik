@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../discovery/laptop_discovery.dart';
 import '../protocol/mixer_client.dart';
+import '../storage/password_store.dart';
+import 'discovered_laptops.dart';
 import 'monitors_screen.dart';
 
 /// Default port of the REAPER extension (docs/protocol.md).
 const int defaultPort = 8790;
 
-/// Manual address entry: the musician types the laptop's address and port.
+/// Connection screen: the band password (remembered after a successful
+/// connection), laptops discovered on the network, plus a manual address as
+/// the fallback when the network blocks multicast.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({super.key});
+  const ConnectScreen({
+    super.key,
+    required this.passwordStore,
+    this.discovery,
+  });
+
+  final PasswordStore passwordStore;
+  final LaptopDiscovery? discovery;
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -17,13 +29,33 @@ class ConnectScreen extends StatefulWidget {
 class _ConnectScreenState extends State<ConnectScreen> {
   final _host = TextEditingController();
   final _port = TextEditingController(text: '$defaultPort');
+  final _password = TextEditingController();
   bool _connecting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPassword();
+  }
+
+  Future<void> _loadPassword() async {
+    final String? password;
+    try {
+      password = await widget.passwordStore.read();
+    } on Exception {
+      return; // nothing remembered we can use; the musician types it
+    }
+    if (mounted && password != null && _password.text.isEmpty) {
+      _password.text = password;
+    }
+  }
 
   @override
   void dispose() {
     _host.dispose();
     _port.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -34,12 +66,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
       setState(() => _error = 'Podaj adres i port laptopa.');
       return;
     }
+    await _connectTo(host, port);
+  }
+
+  Future<void> _connectTo(String host, int port) async {
     setState(() {
       _connecting = true;
       _error = null;
     });
+    final password = _password.text;
     try {
-      final client = await MixerClient.connect(host: host, port: port);
+      final client = await MixerClient.connect(
+        host: host,
+        port: port,
+        password: password,
+      );
+      try {
+        await widget.passwordStore.write(password);
+      } on Exception {
+        // Not remembered this time; the connection itself is fine.
+      }
       if (!mounted) {
         await client.close();
         return;
@@ -50,9 +96,19 @@ class _ConnectScreenState extends State<ConnectScreen> {
         ),
       );
       await client.close();
-    } on Exception {
+    } on MixerConnectionException catch (error) {
       if (mounted) {
-        setState(() => _error = 'Nie udało się połączyć z $host:$port.');
+        setState(
+          () => _error = switch (error.failure) {
+            ConnectionFailure.badPassword =>
+              'Złe hasło. Zapytaj zespół o aktualne hasło.',
+            ConnectionFailure.unsupportedVersion =>
+              'Rozszerzenie w REAPERze ma inną wersję niż Bielik. '
+                  'Zaktualizuj Rozszerzenie albo Bielika.',
+            ConnectionFailure.network =>
+              'Nie udało się połączyć z $host:$port.',
+          },
+        );
       }
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -66,6 +122,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          TextField(
+            key: const Key('password'),
+            controller: _password,
+            decoration: const InputDecoration(labelText: 'Hasło zespołu'),
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+          ),
+          const SizedBox(height: 16),
+          if (widget.discovery case final discovery?) ...[
+            DiscoveredLaptops(
+              discovery: discovery,
+              enabled: !_connecting,
+              onSelected: (laptop) => _connectTo(laptop.host, laptop.port),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             key: const Key('host'),
             controller: _host,
