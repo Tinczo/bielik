@@ -39,7 +39,34 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     return;
   }
 
+  if (type == "subscribe") {
+    if (!message.contains("monitorId") || !message["monitorId"].is_string()) {
+      sendError(client, "invalid_message", "subscribe needs a string 'monitorId'");
+      return;
+    }
+    const std::string monitorId = message["monitorId"];
+    const auto monitor = monitorState(project_, monitorId);
+    if (!monitor) {
+      sendError(client, "not_found", "no monitor with id " + monitorId);
+      return;
+    }
+    state.subscribedMonitor = monitorId;
+    sendMonitor(client, *monitor);
+    return;
+  }
+
   sendError(client, "unknown_type", "unknown message type: " + type);
+}
+
+void MonitorCore::sendMonitor(ClientId client, const MonitorState& monitor) {
+  json sources = json::array();
+  for (const Source& source : monitor.sources) {
+    sources.push_back({{"id", source.id}, {"name", source.name}, {"level", source.level}});
+  }
+  sendJson(client, {{"type", "monitor"},
+                    {"id", monitor.monitor.id},
+                    {"name", monitor.monitor.name},
+                    {"sources", sources}});
 }
 
 void MonitorCore::sendMonitors(ClientId client) {

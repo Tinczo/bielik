@@ -56,10 +56,23 @@ class MixerClient {
   /// Monitors of the active project; null until the server sends the list.
   final ValueNotifier<List<Monitor>?> monitors = ValueNotifier(null);
 
+  /// State of the subscribed monitor; null until the server sends it.
+  final ValueNotifier<MonitorState?> monitor = ValueNotifier(null);
+
+  String? _subscribedMonitorId;
+
+  /// Starts showing [monitorId]; replaces any previous subscription.
+  void subscribe(String monitorId) {
+    _subscribedMonitorId = monitorId;
+    monitor.value = null;
+    _send(subscribeMessage(monitorId));
+  }
+
   Future<void> close() async {
     await _subscription.cancel();
     await _socket.close();
     monitors.dispose();
+    monitor.dispose();
   }
 
   void _send(Map<String, Object?> message) => _socket.add(jsonEncode(message));
@@ -77,6 +90,9 @@ class MixerClient {
         if (!_welcome.isCompleted) _welcome.complete();
       case MonitorsMessage(:final monitors):
         this.monitors.value = monitors;
+      case MonitorMessage(:final monitor):
+        // Ignore a late answer for a monitor the musician has already left.
+        if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
       case ErrorMessage(:final code, :final message):
         if (!_welcome.isCompleted) {
           _welcome.completeError(
