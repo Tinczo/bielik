@@ -4,11 +4,15 @@
 #include <thread>
 
 #include <ixwebsocket/IXWebSocket.h>
+#include <windows.h>
 
 namespace rmm::testing {
 
 int nextTestPort() {
-  static std::atomic<int> port{18790};
+  // Test runs from several checkouts may run at once, and on Windows two servers can bind
+  // the same port; give each process its own block of ports.
+  constexpr int kPortsPerProcess = 64;
+  static std::atomic<int> port{20000 + static_cast<int>(GetCurrentProcessId() % 600) * kPortsPerProcess};
   return port++;
 }
 
