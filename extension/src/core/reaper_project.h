@@ -29,6 +29,11 @@ class ReaperProject {
   // Receives of the track with this GUID, in REAPER's receive order. Empty if the track
   // has none or does not exist.
   virtual std::vector<Receive> receives(const std::string& trackGuid) const = 0;
+
+  // Sets the volume (linear, as Receive::level) of the track's first receive coming from
+  // the source track, the way a control surface would. Returns false if there is none.
+  virtual bool setReceiveLevel(const std::string& trackGuid, const std::string& sourceGuid,
+                               double level) = 0;
 };
 
 }  // namespace rmm

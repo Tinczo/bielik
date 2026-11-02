@@ -15,7 +15,7 @@ inline constexpr int kDefaultPort = 8790;
 // pump() must be called on the main thread (REAPER timer in production, by hand in tests).
 class MixerServer {
  public:
-  MixerServer(const ReaperProject& project, int port, std::string host = "0.0.0.0");
+  MixerServer(ReaperProject& project, int port, std::string host = "0.0.0.0");
 
   bool start(std::string* error = nullptr);
   void stop();

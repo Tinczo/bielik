@@ -25,7 +25,7 @@ class MonitorCore {
   // Called for every outgoing text message.
   using Send = std::function<void(ClientId, std::string)>;
 
-  MonitorCore(const ReaperProject& project, Send send);
+  MonitorCore(ReaperProject& project, Send send);
 
   void clientConnected(ClientId client);
   void clientDisconnected(ClientId client);
@@ -37,12 +37,13 @@ class MonitorCore {
     std::string subscribedMonitor;  // GUID, empty when not subscribed
   };
 
+  void handleSetLevel(ClientId client, const nlohmann::json& message);
   void sendMonitors(ClientId client);
   void sendMonitor(ClientId client, const MonitorState& monitor);
   void sendError(ClientId client, std::string_view code, std::string_view message);
   void sendJson(ClientId client, const nlohmann::json& message);
 
-  const ReaperProject& project_;
+  ReaperProject& project_;
   Send send_;
   std::unordered_map<ClientId, Client> clients_;
 };

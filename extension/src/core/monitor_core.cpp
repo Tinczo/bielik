@@ -1,5 +1,8 @@
 #include "core/monitor_core.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <nlohmann/json.hpp>
 
 #include "core/monitors.h"
@@ -8,7 +11,7 @@ namespace rmm {
 
 using nlohmann::json;
 
-MonitorCore::MonitorCore(const ReaperProject& project, Send send)
+MonitorCore::MonitorCore(ReaperProject& project, Send send)
     : project_(project), send_(std::move(send)) {}
 
 void MonitorCore::clientConnected(ClientId client) { clients_[client] = {}; }
@@ -55,7 +58,43 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     return;
   }
 
+  if (type == "set_level") {
+    handleSetLevel(client, message);
+    return;
+  }
+
   sendError(client, "unknown_type", "unknown message type: " + type);
+}
+
+void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message) {
+  const auto isString = [&](const char* field) {
+    return message.contains(field) && message[field].is_string();
+  };
+  if (!isString("monitorId") || !isString("sourceId") || !message.contains("level") ||
+      !message["level"].is_number()) {
+    sendError(client, "invalid_message",
+              "set_level needs string 'monitorId' and 'sourceId' and a number 'level'");
+    return;
+  }
+  const std::string monitorId = message["monitorId"];
+  const std::string sourceId = message["sourceId"];
+  const double level = message["level"];
+  if (!std::isfinite(level) || level < 0) {
+    sendError(client, "invalid_message", "set_level 'level' must be a finite number >= 0");
+    return;
+  }
+  const auto monitor = monitorState(project_, monitorId);
+  if (!monitor) {
+    sendError(client, "not_found", "no monitor with id " + monitorId);
+    return;
+  }
+  const bool hasSource = std::any_of(monitor->sources.begin(), monitor->sources.end(),
+                                     [&](const Source& source) { return source.id == sourceId; });
+  if (!hasSource) {
+    sendError(client, "not_found", "monitor " + monitorId + " has no source " + sourceId);
+    return;
+  }
+  project_.setReceiveLevel(monitorId, sourceId, level);
 }
 
 void MonitorCore::sendMonitor(ClientId client, const MonitorState& monitor) {

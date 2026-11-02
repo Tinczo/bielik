@@ -10,6 +10,8 @@ class ReaperProjectAdapter : public ReaperProject {
  public:
   std::vector<Track> tracks() const override;
   std::vector<Receive> receives(const std::string& trackGuid) const override;
+  bool setReceiveLevel(const std::string& trackGuid, const std::string& sourceGuid,
+                       double level) override;
 };
 
 }  // namespace rmm

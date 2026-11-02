@@ -55,4 +55,24 @@ std::vector<Receive> ReaperProjectAdapter::receives(const std::string& trackGuid
   return result;
 }
 
+bool ReaperProjectAdapter::setReceiveLevel(const std::string& trackGuid,
+                                           const std::string& sourceGuid, double level) {
+  MediaTrack* track = findTrack(trackGuid);
+  if (!track) return false;
+  const int count = GetTrackNumSends(track, kReceives);
+  for (int i = 0; i < count; ++i) {
+    auto* source = static_cast<MediaTrack*>(GetSetTrackSendInfo(track, kReceives, i, "P_SRCTRACK", nullptr));
+    if (!source || guidOf(source) != sourceGuid) continue;
+    // Written like a control-surface fader move, not with SetTrackSendInfo_Value: the
+    // mixer UI follows the change. SetTrackSendUIVol over CSurf_OnRecvVolumeChange because
+    // REAPER's own web remote (csurf_www.cpp) uses it for exactly this, and its `isend`
+    // argument lets us say "tweak in progress" (0) explicitly: the wire has no
+    // end-of-gesture, so we never send "end of edit" (1), which is what adds an undo point.
+    // A negative index addresses receives: -1 is the first one.
+    constexpr int kTweak = 0;
+    return SetTrackSendUIVol(track, -1 - i, level, kTweak);
+  }
+  return false;
+}
+
 }  // namespace rmm

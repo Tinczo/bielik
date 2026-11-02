@@ -2,7 +2,7 @@
 
 namespace rmm {
 
-MixerServer::MixerServer(const ReaperProject& project, int port, std::string host)
+MixerServer::MixerServer(ReaperProject& project, int port, std::string host)
     : transport_(std::move(host), port),
       core_(project, [this](ClientId client, std::string text) {
         transport_.send(client, std::move(text));
