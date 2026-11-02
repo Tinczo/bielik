@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -32,53 +33,78 @@ class MixerConnectionException implements Exception {
   String toString() => 'MixerConnectionException($failure): $message';
 }
 
-/// Client side of the protocol: one WebSocket connection to the REAPER
-/// extension. Independent of the UI.
+/// Whether a [MixerClient] can talk to the extension right now.
+enum ConnectionStatus {
+  /// Handshake done; level changes reach REAPER.
+  connected,
+
+  /// The connection dropped; the client is trying to get it back. Controls
+  /// that change levels should be disabled meanwhile.
+  reconnecting,
+}
+
+/// Client side of the protocol: a connection to the REAPER extension that
+/// comes back on its own after a Wi-Fi drop or a REAPER restart (retrying with
+/// a growing delay, then subscribing to the same monitor again). Independent
+/// of the UI.
 class MixerClient {
-  MixerClient._(this._socket) {
-    _subscription = _socket.listen(
-      _onData,
-      onDone: _onDone,
-      onError: (_) => _onDone(),
-    );
-  }
+  MixerClient._(
+    this.host,
+    this.port,
+    this.password,
+    this._timeout,
+    this._keepAlive,
+  );
 
   /// Connects to the extension and completes the hello/welcome handshake.
   /// Throws [MixerConnectionException] telling why it failed.
+  ///
+  /// With [keepAlive] the client pings the server at that interval and treats
+  /// a missing pong as a dropped connection, so a vanished Wi-Fi is noticed
+  /// even when no TCP close arrives.
   static Future<MixerClient> connect({
     required String host,
     required int port,
     String password = '',
     Duration timeout = const Duration(seconds: 5),
+    Duration? keepAlive,
   }) async {
-    final WebSocket socket;
-    try {
-      socket = await WebSocket.connect('ws://$host:$port/').timeout(timeout);
-    } on Object catch (error) {
-      throw MixerConnectionException('cannot connect to $host:$port: $error');
-    }
-    final client = MixerClient._(socket);
-    client._send(helloMessage(password: password));
-    try {
-      await client._welcome.future.timeout(timeout);
-    } on TimeoutException {
-      await client.close();
-      throw MixerConnectionException('no welcome from $host:$port');
-    } on Object {
-      await client.close();
-      rethrow;
-    }
+    final client = MixerClient._(host, port, password, timeout, keepAlive);
+    await client._open();
     return client;
   }
 
-  final WebSocket _socket;
-  late final StreamSubscription<dynamic> _subscription;
-  final Completer<void> _welcome = Completer<void>();
+  /// Delay before the first reconnect attempt; it doubles up to the maximum.
+  static const _firstRetryDelay = Duration(milliseconds: 500);
+  static const _maxRetryDelay = Duration(seconds: 5);
+
+  final String host;
+  final int port;
+  final String password;
+  final Duration _timeout;
+  final Duration? _keepAlive;
+
+  WebSocket? _socket;
+
+  /// The socket whose handshake succeeded; only its loss triggers reconnecting.
+  WebSocket? _established;
+  StreamSubscription<dynamic>? _subscription;
+  Completer<void>? _welcome;
+  Timer? _retryTimer;
+  Duration _retryDelay = _firstRetryDelay;
+  bool _closed = false;
+
+  /// Whether the extension can be reached right now.
+  final ValueNotifier<ConnectionStatus> connection = ValueNotifier(
+    ConnectionStatus.connected,
+  );
 
   /// Monitors of the active project; null until the server sends the list.
+  /// Kept while reconnecting.
   final ValueNotifier<List<Monitor>?> monitors = ValueNotifier(null);
 
-  /// State of the subscribed monitor; null until the server sends it.
+  /// State of the subscribed monitor; null until the server sends it. Kept
+  /// while reconnecting.
   final ValueNotifier<MonitorState?> monitor = ValueNotifier(null);
 
   String? _subscribedMonitorId;
@@ -91,13 +117,57 @@ class MixerClient {
   }
 
   Future<void> close() async {
-    await _subscription.cancel();
-    await _socket.close();
+    _closed = true;
+    _retryTimer?.cancel();
+    await _dropSocket();
+    connection.dispose();
     monitors.dispose();
     monitor.dispose();
   }
 
-  void _send(Map<String, Object?> message) => _socket.add(jsonEncode(message));
+  /// Opens a socket and completes the handshake on it.
+  Future<void> _open() async {
+    final WebSocket socket;
+    try {
+      socket = await WebSocket.connect('ws://$host:$port/').timeout(_timeout);
+    } on Object catch (error) {
+      throw MixerConnectionException('cannot connect to $host:$port: $error');
+    }
+    if (_closed) {
+      await socket.close();
+      throw MixerConnectionException('client closed');
+    }
+    socket.pingInterval = _keepAlive;
+    final welcome = Completer<void>();
+    _socket = socket;
+    _welcome = welcome;
+    _subscription = socket.listen(
+      _onData,
+      onDone: () => _onDone(socket),
+      onError: (_) => _onDone(socket),
+    );
+    _send(helloMessage(password: password));
+    try {
+      await welcome.future.timeout(_timeout);
+    } on TimeoutException {
+      await _dropSocket();
+      throw MixerConnectionException('no welcome from $host:$port');
+    } on Object {
+      await _dropSocket();
+      rethrow;
+    }
+    _established = socket;
+  }
+
+  Future<void> _dropSocket() async {
+    final socket = _socket;
+    _socket = null;
+    await _subscription?.cancel();
+    _subscription = null;
+    await socket?.close();
+  }
+
+  void _send(Map<String, Object?> message) => _socket?.add(jsonEncode(message));
 
   void _onData(dynamic data) {
     if (data is! String) return;
@@ -109,15 +179,17 @@ class MixerClient {
     }
     switch (ServerMessage.fromJson(json)) {
       case WelcomeMessage():
-        if (!_welcome.isCompleted) _welcome.complete();
+        if (_welcome case final welcome? when !welcome.isCompleted) {
+          welcome.complete();
+        }
       case MonitorsMessage(:final monitors):
         this.monitors.value = monitors;
       case MonitorMessage(:final monitor):
         // Ignore a late answer for a monitor the musician has already left.
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
       case ErrorMessage(:final code, :final message):
-        if (!_welcome.isCompleted) {
-          _welcome.completeError(
+        if (_welcome case final welcome? when !welcome.isCompleted) {
+          welcome.completeError(
             MixerConnectionException(
               'server refused: $code $message',
               failure: switch (code) {
@@ -135,11 +207,46 @@ class MixerClient {
     }
   }
 
-  void _onDone() {
-    if (!_welcome.isCompleted) {
-      _welcome.completeError(
+  void _onDone(WebSocket socket) {
+    if (socket != _socket) return; // an old socket, already replaced
+    final welcome = _welcome;
+    if (welcome != null && !welcome.isCompleted) {
+      welcome.completeError(
         MixerConnectionException('connection closed during handshake'),
       );
+    }
+    if (socket != _established) return; // _open() reports the failure
+    _socket = null;
+    _subscription = null;
+    if (_closed) return;
+    connection.value = ConnectionStatus.reconnecting;
+    _retryDelay = _firstRetryDelay;
+    _scheduleRetry();
+  }
+
+  void _scheduleRetry() {
+    _retryTimer = Timer(_retryDelay, _retry);
+    _retryDelay = Duration(
+      milliseconds: min(
+        _retryDelay.inMilliseconds * 2,
+        _maxRetryDelay.inMilliseconds,
+      ),
+    );
+  }
+
+  Future<void> _retry() async {
+    if (_closed) return;
+    try {
+      await _open();
+    } on MixerConnectionException {
+      if (!_closed) _scheduleRetry();
+      return;
+    }
+    if (_closed) return;
+    connection.value = ConnectionStatus.connected;
+    if (_subscribedMonitorId case final monitorId?) {
+      // Keep showing the old state until the fresh one arrives.
+      _send(subscribeMessage(monitorId));
     }
   }
 }

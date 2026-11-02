@@ -10,37 +10,55 @@ import 'protocol_examples.dart';
 /// `server` step, and closes the connection at a `closed` step. Mismatches are
 /// collected in [problems].
 class FakeMixerServer {
-  FakeMixerServer._(this._server, this._example) {
+  FakeMixerServer._(this._server, this.example) {
     _server.listen(_onRequest);
   }
 
-  static Future<FakeMixerServer> start(ProtocolExample example) async {
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  /// Listens on loopback; on [port] if given (e.g. to come back after
+  /// [close], like a restarted REAPER), otherwise on a free one.
+  static Future<FakeMixerServer> start(
+    ProtocolExample example, {
+    int port = 0,
+  }) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
     return FakeMixerServer._(server, example);
   }
 
   final HttpServer _server;
-  final ProtocolExample _example;
   final List<WebSocket> _sockets = [];
+
+  /// The example played for each new connection; may be swapped mid-test.
+  ProtocolExample example;
 
   /// Everything that did not go according to the example.
   final List<String> problems = [];
 
+  /// How many connections the server has accepted.
+  int connections = 0;
+
   String get host => _server.address.address;
   int get port => _server.port;
 
-  Future<void> close() async {
-    for (final socket in _sockets) {
+  /// Cuts every open connection (like a Wi-Fi drop) but keeps listening.
+  Future<void> dropConnections() async {
+    final sockets = [..._sockets];
+    _sockets.clear();
+    for (final socket in sockets) {
       await socket.close();
     }
+  }
+
+  Future<void> close() async {
+    await dropConnections();
     await _server.close(force: true);
   }
 
   Future<void> _onRequest(HttpRequest request) async {
     final socket = await WebSocketTransformer.upgrade(request);
     _sockets.add(socket);
+    connections++;
     final incoming = StreamIterator<dynamic>(socket);
-    for (final step in _example.steps) {
+    for (final step in example.steps) {
       if (step['closed'] == true) {
         await socket.close();
         return;
@@ -50,7 +68,11 @@ class FakeMixerServer {
         continue;
       }
       if (!await incoming.moveNext()) {
-        problems.add('connection closed, expected ${jsonEncode(step['client'])}');
+        if (_sockets.contains(socket)) {
+          problems.add(
+            'connection closed, expected ${jsonEncode(step['client'])}',
+          );
+        }
         return;
       }
       final received = jsonDecode(incoming.current as String);

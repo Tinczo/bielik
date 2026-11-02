@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../discovery/laptop_discovery.dart';
 import '../protocol/mixer_client.dart';
 import '../storage/password_store.dart';
+import 'connection_status_bar.dart';
 import 'discovered_laptops.dart';
 import 'monitors_screen.dart';
 
@@ -13,11 +14,7 @@ const int defaultPort = 8790;
 /// connection), laptops discovered on the network, plus a manual address as
 /// the fallback when the network blocks multicast.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({
-    super.key,
-    required this.passwordStore,
-    this.discovery,
-  });
+  const ConnectScreen({super.key, required this.passwordStore, this.discovery});
 
   final PasswordStore passwordStore;
   final LaptopDiscovery? discovery;
@@ -92,7 +89,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
       }
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => MonitorsScreen(client: client),
+          builder: (_) => ConnectionStatusBar(
+            client: client,
+            child: MonitorsScreen(client: client),
+          ),
         ),
       );
       await client.close();
