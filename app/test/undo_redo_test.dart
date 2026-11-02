@@ -243,4 +243,60 @@ void main() {
     expect(_enabled(tester, _undo), isFalse);
     expect(server.problems, isEmpty);
   });
+
+  testWidgets('each monitor has its own history, kept while the musician '
+      'switches between monitors', (tester) async {
+    // set-level.json: in "Wokal" Gitara goes 0.5 -> 1.0 (echoed), then the
+    // musician opens "Gitara" and comes back to "Wokal".
+    final server = await _startAndOpen(tester, 'set-level.json');
+    await tester.tap(_sliderOf(_guitarId));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(_sliderOf(_guitarId));
+    await tester.pump(kDoubleTapTimeout);
+    await pumpUntilFound(tester, _levelIn('Gitara', '0.0 dB'));
+
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gitara'));
+    await pumpUntilFound(tester, _sliderOf(_guitarId));
+    await tester.pumpAndSettle();
+    expect(_enabled(tester, _undo), isFalse);
+
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Wokal'));
+    await pumpUntilFound(tester, _levelIn('Gitara', '0.0 dB'));
+    await tester.pumpAndSettle();
+    expect(_enabled(tester, _undo), isTrue);
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('the history survives connecting again', (tester) async {
+    final server = await _startAndOpen(tester);
+    await _silence(tester, server, _guitarId);
+
+    // Back to the connect screen (the connection closes) and connect again.
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await pumpUntil(
+      tester,
+      () =>
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed !=
+          null,
+      description: 'the connection closed',
+    );
+    // Closing may arm dart:io's close-handshake timer, in fake time.
+    await tester.pump(const Duration(seconds: 6));
+    await _openMonitor(tester, server);
+    await tester.pumpAndSettle();
+
+    expect(_enabled(tester, _undo), isTrue);
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
+    expect(server.problems, isEmpty);
+  });
 }
