@@ -94,7 +94,7 @@ Klient ustawia poziom źródła w odsłuchu wiadomością `set_level`:
 
 - `level` liniowo jak w `monitor` (`1.0` = 0 dB, `0` = −∞), liczba skończona ≥ 0. Krzywą suwaka i konwersję na dB robi Aplikacja.
 - Zmienia się głośność jednego receive'a: pierwszego receive'a ścieżki `monitorId` ze ścieżki `sourceId`. To samo źródło w innych odsłuchach się nie zmienia.
-- Serwer nie odpowiada na udane `set_level`; nowy poziom widać w kolejnym stanie odsłuchu.
+- Serwer nie odpowiada na udane `set_level` osobną odpowiedzią; nowy poziom wraca jako `level` do wszystkich klientów subskrybujących ten odsłuch, także do nadawcy (echo, zob. „Zmiany poziomów na żywo”).
 - Klient nie musi subskrybować odsłuchu, któremu zmienia poziom.
 - Serwer zlewa wiele `set_level` dla tego samego receive'a, które przyszły w jednym takcie timera, i zapisuje tylko ostatnią wartość. Inna wiadomość klienta widzi już wszystkie poziomy zmienione przed nią.
 - Aplikacja wysyła w trakcie gestu najwyżej ~25 `set_level` na sekundę i zawsze wysyła wartość końcową po puszczeniu suwaka.
@@ -102,9 +102,30 @@ Klient ustawia poziom źródła w odsłuchu wiadomością `set_level`:
 
 Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, level, 0)`, czyli jak ruch suwaka na kontrolerze: UI miksera się odświeża. Wybrane zamiast `CSurf_OnRecvVolumeChange`, bo tak samo robi wbudowany web remote REAPERa (`csurf_www.cpp`), a argument `isend` pozwala jawnie powiedzieć „ruch w trakcie” (`0`). Łącze nie ma końca gestu, więc Rozszerzenie nigdy nie wysyła „koniec edycji” (`1`), który tworzy punkt undo — dzięki temu wiadomości z telefonów nie zaśmiecają historii undo. Do potwierdzenia ręcznie w REAPERze 7.24.
 
+## Zmiany poziomów na żywo
+
+Gdy zmieni się poziom źródła w subskrybowanym odsłuchu — myszką w REAPERze, z innego telefonu albo z tego samego telefonu przez `set_level` — serwer wysyła `level`:
+
+```json
+{
+  "type": "level",
+  "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+  "sourceId": "{1B6A2C10-0002-4A3E-9C1D-000000000002}",
+  "level": 1.0
+}
+```
+
+- Pola jak w `set_level`; `level` to nowa głośność receive'a (liniowo, `1.0` = 0 dB).
+- Dostają go wszyscy klienci, którzy subskrybują ten odsłuch, także ten, który wysłał `set_level` (echo). Klienci subskrybujący inne odsłuchy (albo żaden) go nie dostają — także wtedy, gdy zmieniło się to samo źródło w innym odsłuchu.
+- Serwer wysyła tylko różnice względem tego, co ten klient już dostał: jedno `level` na źródło, którego poziom się zmienił, w kolejności źródeł. Kilka zmian jednego źródła w jednym takcie timera daje jedno `level` z ostatnią wartością.
+- Echo nie jest potwierdzeniem: po zlaniu kilku `set_level` w jednym takcie przychodzi tylko ostatnia wartość. Aplikacja ignoruje `level` dla suwaka, którego użytkownik właśnie dotyka, a po puszczeniu pokazuje stan z serwera.
+- Gdy w tej samej chwili zmieni się też struktura odsłuchu, serwer wysyła pełny `monitor` (z aktualnymi poziomami) zamiast `level`.
+
+Rozszerzenie wykrywa zmiany przez ukrytą powierzchnię kontrolną (`CSURF_EXT_SETRECVVOLUME` i inne powiadomienia), a jako siatkę bezpieczeństwa timer porównuje `GetProjectStateChangeCount`; przy zmianie przelicza model i wysyła różnice. Po zapisaniu poziomów z `set_level` Rozszerzenie samo przelicza model, więc echo nie zależy od tego, czy REAPER zgłosi własny zapis Rozszerzenia przez powierzchnię kontrolną.
+
 ## Zmiany struktury na żywo
 
-- Gdy w subskrybowanym odsłuchu zmieni się lista źródeł (receive dodany lub usunięty, ścieżka-źródło usunięta) albo nazwa odsłuchu lub źródła, serwer wysyła ponownie pełny `monitor`. Sama zmiana poziomów nie powoduje wysłania `monitor`.
+- Gdy w subskrybowanym odsłuchu zmieni się lista źródeł (receive dodany lub usunięty, ścieżka-źródło usunięta) albo nazwa odsłuchu lub źródła, serwer wysyła ponownie pełny `monitor`. Sama zmiana poziomów nie powoduje wysłania `monitor`, tylko `level`.
 - Odsłuchy i źródła są identyfikowane po GUID, więc przesunięcie ścieżek w projekcie niczego nie zmienia (poza kolejnością w `monitors`, jeśli przesunięto odsłuch).
 - Gdy subskrybowany odsłuch przestaje istnieć (ścieżka usunięta, nazwa zmieniona na taką bez prefiksu, przełączenie projektu), serwer wysyła najpierw nowe `monitors`, a potem:
 

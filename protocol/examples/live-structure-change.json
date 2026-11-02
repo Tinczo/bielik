@@ -1,5 +1,5 @@
 {
-  "description": "The project changes while a client watches a monitor: a new monitor appears (monitors is sent again), and the watched monitor gets a new source and a renamed source (the full monitor is sent again). Moving tracks or changing only levels sends nothing here.",
+  "description": "The project changes while a client watches a monitor: a new monitor appears (monitors is sent again), and the watched monitor gets a new source and a renamed source (the full monitor is sent again). Levels stay the same here (level changes are pushed as level messages, see level-push.json).",
   "project": {
     "tracks": [
       { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },

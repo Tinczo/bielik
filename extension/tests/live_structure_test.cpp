@@ -158,31 +158,6 @@ TEST_CASE("the subscribed client gets the full monitor when its sources change")
   session.expectSilence();
 }
 
-TEST_CASE("a level-only change sends no full monitor") {
-  FakeProject project = bandProject();
-  Session session(project);
-  session.subscribe(kVocalMonitor);
-
-  project.receiveLists[kVocalMonitor][0].level = 0.1;
-  project.changed();
-
-  session.expectSilence();
-}
-
-TEST_CASE("a set_level write notifies the change but sends nothing back") {
-  FakeProject project = bandProject();
-  Session session(project);
-  session.subscribe(kVocalMonitor);
-
-  session.client.send(
-      json{{"type", "set_level"}, {"monitorId", kVocalMonitor}, {"sourceId", kGuitar}, {"level", 0.25}}
-          .dump());
-
-  session.expectSilence();
-  REQUIRE(project.levelWrites.size() == 1);
-  CHECK(project.receiveLists[kVocalMonitor][0].level == 0.25);
-}
-
 TEST_CASE("renaming the subscribed monitor updates the list and the monitor") {
   FakeProject project = bandProject();
   Session session(project);

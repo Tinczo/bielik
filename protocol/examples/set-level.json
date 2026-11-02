@@ -1,5 +1,5 @@
 {
-  "description": "set_level changes the volume of one receive: the level of that source in that monitor. The same source in another monitor keeps its level. The server does not answer set_level itself; the new level shows in the next monitor state.",
+  "description": "set_level changes the volume of one receive: the level of that source in that monitor. The same source in another monitor keeps its level. The server does not answer set_level with a reply of its own, but pushes the new level to every client subscribed to that monitor, the sender too (echo); a later subscribe sees it as well.",
   "project": {
     "tracks": [
       { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },
@@ -49,6 +49,14 @@
     {
       "client": {
         "type": "set_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "sourceId": "{1B6A2C10-0002-4A3E-9C1D-000000000002}",
+        "level": 1.0
+      }
+    },
+    {
+      "server": {
+        "type": "level",
         "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
         "sourceId": "{1B6A2C10-0002-4A3E-9C1D-000000000002}",
         "level": 1.0
