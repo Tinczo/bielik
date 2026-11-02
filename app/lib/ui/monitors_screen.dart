@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../protocol/messages.dart';
 import '../protocol/mixer_client.dart';
+import 'monitor_screen.dart';
 
 /// List of the monitors in the active REAPER project.
 class MonitorsScreen extends StatelessWidget {
@@ -37,6 +38,12 @@ class MonitorsScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.headphones),
                   title: Text(monitor.name),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          MonitorScreen(client: client, monitor: monitor),
+                    ),
+                  ),
                 ),
             ],
           );

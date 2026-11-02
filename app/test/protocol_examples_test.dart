@@ -32,6 +32,21 @@ void main() {
     expect(matchesExample(hello, helloMessage()), isTrue);
   });
 
+  test('subscribe matches the subscribe example', () {
+    final example = loadProtocolExample('subscribe.json');
+    final subscribe = example.steps
+        .map((step) => step['client'])
+        .whereType<Map<String, dynamic>>()
+        .singleWhere((message) => message['type'] == 'subscribe');
+    expect(
+      matchesExample(
+        subscribe,
+        subscribeMessage(subscribe['monitorId'] as String),
+      ),
+      isTrue,
+    );
+  });
+
   test('monitors from the handshake example are decoded in order', () {
     final monitors = loadProtocolExample('handshake.json')
         .serverMessages
