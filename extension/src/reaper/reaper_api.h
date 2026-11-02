@@ -10,6 +10,10 @@
 #define REAPERAPI_WANT_guidToString
 #define REAPERAPI_WANT_GetSetMediaTrackInfo_String
 #define REAPERAPI_WANT_ShowConsoleMsg
+#define REAPERAPI_WANT_ShowMessageBox
+#define REAPERAPI_WANT_GetUserInputs
+#define REAPERAPI_WANT_GetExtState
+#define REAPERAPI_WANT_SetExtState
 
 #include <reaper_plugin.h>
 #include <reaper_plugin_functions.h>

@@ -44,6 +44,8 @@ rmm_compile_options(transport)
 add_library(reaper_mobile_mixer SHARED
   src/reaper/plugin_main.cpp
   src/reaper/reaper_project_adapter.cpp
+  src/reaper/extstate_settings_store.cpp
+  src/reaper/settings_dialog.cpp
 )
 target_link_libraries(reaper_mobile_mixer PRIVATE transport reaper_sdk)
 rmm_compile_options(reaper_mobile_mixer)
