@@ -50,9 +50,24 @@ void TestClient::send(const std::string& text) { socket_->sendText(text); }
 
 std::optional<std::string> TestClient::nextMessage(MixerServer& server,
                                                    std::chrono::milliseconds timeout) {
+  return nextMessage([&server] { server.pump(); }, timeout);
+}
+
+bool TestClient::waitClosed(MixerServer& server, std::chrono::milliseconds timeout) {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     server.pump();
+    std::unique_lock lock(mutex_);
+    if (changed_.wait_for(lock, std::chrono::milliseconds(5), [this] { return !open_; })) return true;
+  }
+  return false;
+}
+
+std::optional<std::string> TestClient::nextMessage(const std::function<void()>& pump,
+                                                   std::chrono::milliseconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    pump();
     std::unique_lock lock(mutex_);
     if (changed_.wait_for(lock, std::chrono::milliseconds(5), [this] { return !messages_.empty(); })) {
       std::string message = std::move(messages_.front());

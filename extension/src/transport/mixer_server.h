@@ -20,6 +20,9 @@ class MixerServer {
   bool start(std::string* error = nullptr);
   void stop();
 
+  // Band password checked in hello; empty by default.
+  void setPassword(std::string password);
+
   // Main thread: delivers queued network events to the core.
   void pump();
 

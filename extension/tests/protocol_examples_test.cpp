@@ -55,15 +55,22 @@ void replay(const json& example) {
   FakeProject project = projectFrom(example);
   const int port = nextTestPort();
   MixerServer server(project, port, "127.0.0.1");
+  if (example.contains("settings")) {
+    server.setPassword(example["settings"].value("password", std::string()));
+  }
   std::string error;
   REQUIRE_MESSAGE(server.start(&error), error);
   TestClient client(port);
   REQUIRE(client.isOpen());
 
   int stepIndex = 0;
+  bool closed = false;
   for (const auto& step : example["steps"]) {
     CAPTURE(stepIndex);
-    if (step.contains("client")) {
+    if (step.contains("closed")) {
+      CHECK_MESSAGE(client.waitClosed(server), "expected the server to close the connection");
+      closed = true;
+    } else if (step.contains("client")) {
       const json& message = step["client"];
       client.send(message.is_string() ? message.get<std::string>() : message.dump());
     } else {
@@ -76,10 +83,10 @@ void replay(const json& example) {
     ++stepIndex;
   }
 
-  // Errors never close the connection in v1, and nothing unexpected follows.
+  // Nothing unexpected follows, and the connection stays open unless the example closed it.
   const auto extra = client.nextMessage(server, std::chrono::milliseconds(100));
   CHECK_MESSAGE(!extra.has_value(), "unexpected message " << extra.value_or(""));
-  CHECK(client.isOpen());
+  if (!closed) CHECK(client.isOpen());
   server.stop();
 }
 

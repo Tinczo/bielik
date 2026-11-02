@@ -43,11 +43,14 @@ class WebSocketTransport {
   std::vector<Event> takeEvents();
   // Any thread: queues a text message for the client.
   void send(ClientId client, std::string text);
+  // Any thread: closes the client's connection after the messages queued before.
+  void close(ClientId client);
 
  private:
   struct Outgoing {
     ClientId client;
     std::string text;
+    bool close = false;
   };
 
   void pushEvent(Event event);

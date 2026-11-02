@@ -11,11 +11,15 @@ Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja pro
 
 ## Uzgadnianie
 
-Klient po połączeniu wysyła `hello`:
+Klient po połączeniu wysyła `hello` z wersją protokołu i hasłem zespołu:
 
 ```json
-{ "type": "hello", "protocolVersion": 1 }
+{ "type": "hello", "protocolVersion": 1, "password": "próba2026" }
 ```
+
+- `password` (string) to hasło zespołu ustawione w Rozszerzeniu. Brak pola znaczy to samo co pusty string; gdy w Rozszerzeniu nie ustawiono hasła, `hello` może je pominąć.
+- Serwer najpierw sprawdza wersję, potem hasło. Inna wersja niż serwera → `error` `unsupported_version`, złe hasło → `error` `bad_password`; w obu przypadkach serwer zaraz potem zamyka połączenie.
+- Zmiana hasła w Rozszerzeniu działa od następnego `hello`; połączenia już przyjęte zostają.
 
 Serwer odpowiada `welcome` ze swoją wersją protokołu, a zaraz po nim wysyła `monitors`:
 
@@ -45,12 +49,14 @@ Każda inna wiadomość przed `welcome` dostaje `error` z kodem `handshake_requi
 { "type": "error", "code": "unknown_type", "message": "unknown message type: make_coffee" }
 ```
 
-`code` jest dla programu, `message` dla człowieka (do logów, bez gwarancji treści). Błąd nie zamyka połączenia.
+`code` jest dla programu, `message` dla człowieka (do logów, bez gwarancji treści). Błąd nie zamyka połączenia, z wyjątkiem odmowy w uzgadnianiu (`unsupported_version`, `bad_password`).
 
 | `code` | Kiedy |
 |---|---|
 | `handshake_required` | wiadomość inna niż `hello` przed `welcome` |
-| `invalid_message` | tekst, który nie jest obiektem JSON ze stringowym `type`, albo brakujące lub złego typu pola (np. `hello` bez całkowitego `protocolVersion`) |
+| `invalid_message` | tekst, który nie jest obiektem JSON ze stringowym `type`, albo brakujące lub złego typu pola (np. `hello` bez całkowitego `protocolVersion` albo z `password`, które nie jest stringiem) |
+| `unsupported_version` | `protocolVersion` w `hello` inny niż wersja serwera; serwer zamyka połączenie |
+| `bad_password` | złe hasło w `hello`; serwer zamyka połączenie |
 | `unknown_type` | nieznany `type` po `welcome` |
 
 ## Wspólne przykłady (test kontraktu)
@@ -70,7 +76,8 @@ Format pliku:
 }
 ```
 
+- `settings` (opcjonalne) — ustawienia Rozszerzenia, np. `{ "password": "próba2026" }`. Bez tego pola hasło jest puste.
 - `project` — stan projektu REAPERa, na którym stoi serwer (fałszywy projekt w testach Rozszerzenia).
-- `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em).
+- `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em). Krok `{ "closed": true }` znaczy, że serwer zamyka połączenie.
 - Dopasowanie wiadomości: każde pole z przykładu musi wystąpić w prawdziwej wiadomości z tą samą wartością; obiekty mogą mieć dodatkowe pola (np. `message` w `error`), a tablice muszą mieć te same elementy w tej samej kolejności.
-- Po ostatnim kroku serwer nie wysyła już nic, a połączenie zostaje otwarte.
+- Po ostatnim kroku serwer nie wysyła już nic, a połączenie zostaje otwarte (chyba że przykład kończy się krokiem `closed`).
