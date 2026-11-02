@@ -59,6 +59,14 @@ class MixerClient {
   /// State of the subscribed monitor; null until the server sends it.
   final ValueNotifier<MonitorState?> monitor = ValueNotifier(null);
 
+  final StreamController<String> _monitorRemoved =
+      StreamController<String>.broadcast();
+
+  /// Ids of subscribed monitors that were removed in REAPER (track deleted,
+  /// renamed without the prefix, another project opened). The subscription
+  /// ends with them.
+  Stream<String> get monitorRemoved => _monitorRemoved.stream;
+
   String? _subscribedMonitorId;
 
   /// Starts showing [monitorId]; replaces any previous subscription.
@@ -73,6 +81,7 @@ class MixerClient {
     await _socket.close();
     monitors.dispose();
     monitor.dispose();
+    await _monitorRemoved.close();
   }
 
   void _send(Map<String, Object?> message) => _socket.add(jsonEncode(message));
@@ -93,6 +102,11 @@ class MixerClient {
       case MonitorMessage(:final monitor):
         // Ignore a late answer for a monitor the musician has already left.
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
+      case MonitorRemovedMessage(:final monitorId):
+        if (monitorId != _subscribedMonitorId) return;
+        _subscribedMonitorId = null;
+        monitor.value = null;
+        _monitorRemoved.add(monitorId);
       case ErrorMessage(:final code, :final message):
         if (!_welcome.isCompleted) {
           _welcome.completeError(

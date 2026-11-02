@@ -89,6 +89,7 @@ sealed class ServerMessage {
               ],
             ),
           ),
+        'monitor_removed' => MonitorRemovedMessage(json['id'] as String),
         'error' => ErrorMessage(
             json['code'] as String,
             json['message'] as String? ?? '',
@@ -114,6 +115,12 @@ class MonitorsMessage extends ServerMessage {
 class MonitorMessage extends ServerMessage {
   const MonitorMessage(this.monitor);
   final MonitorState monitor;
+}
+
+/// The subscribed monitor no longer exists; the subscription is over.
+class MonitorRemovedMessage extends ServerMessage {
+  const MonitorRemovedMessage(this.monitorId);
+  final String monitorId;
 }
 
 class ErrorMessage extends ServerMessage {
