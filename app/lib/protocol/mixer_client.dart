@@ -6,13 +6,30 @@ import 'package:flutter/foundation.dart';
 
 import 'messages.dart';
 
+/// Why connecting to the extension failed.
+enum ConnectionFailure {
+  /// Nothing answered, the connection dropped, or the server said something
+  /// unexpected.
+  network,
+
+  /// The server refused the band password (`bad_password`).
+  badPassword,
+
+  /// The server speaks another protocol version (`unsupported_version`).
+  unsupportedVersion,
+}
+
 /// Thrown when connecting to the extension fails.
 class MixerConnectionException implements Exception {
-  MixerConnectionException(this.message);
+  MixerConnectionException(
+    this.message, {
+    this.failure = ConnectionFailure.network,
+  });
   final String message;
+  final ConnectionFailure failure;
 
   @override
-  String toString() => 'MixerConnectionException: $message';
+  String toString() => 'MixerConnectionException($failure): $message';
 }
 
 /// Client side of the protocol: one WebSocket connection to the REAPER
@@ -27,9 +44,11 @@ class MixerClient {
   }
 
   /// Connects to the extension and completes the hello/welcome handshake.
+  /// Throws [MixerConnectionException] telling why it failed.
   static Future<MixerClient> connect({
     required String host,
     required int port,
+    String password = '',
     Duration timeout = const Duration(seconds: 5),
   }) async {
     final WebSocket socket;
@@ -39,9 +58,12 @@ class MixerClient {
       throw MixerConnectionException('cannot connect to $host:$port: $error');
     }
     final client = MixerClient._(socket);
-    client._send(helloMessage());
+    client._send(helloMessage(password: password));
     try {
       await client._welcome.future.timeout(timeout);
+    } on TimeoutException {
+      await client.close();
+      throw MixerConnectionException('no welcome from $host:$port');
     } on Object {
       await client.close();
       rethrow;
@@ -80,7 +102,14 @@ class MixerClient {
       case ErrorMessage(:final code, :final message):
         if (!_welcome.isCompleted) {
           _welcome.completeError(
-            MixerConnectionException('server refused: $code $message'),
+            MixerConnectionException(
+              'server refused: $code $message',
+              failure: switch (code) {
+                'bad_password' => ConnectionFailure.badPassword,
+                'unsupported_version' => ConnectionFailure.unsupportedVersion,
+                _ => ConnectionFailure.network,
+              },
+            ),
           );
         } else {
           debugPrint('server error: $code $message');

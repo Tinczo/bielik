@@ -32,6 +32,11 @@ void main() {
     expect(matchesExample(hello, helloMessage()), isTrue);
   });
 
+  test('hello carries the password as in the password example', () {
+    final hello = loadProtocolExample('password.json').steps.first['client'];
+    expect(matchesExample(hello, helloMessage(password: 'próba2026')), isTrue);
+  });
+
   test('monitors from the handshake example are decoded in order', () {
     final monitors = loadProtocolExample('handshake.json')
         .serverMessages

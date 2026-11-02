@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../protocol/mixer_client.dart';
+import '../storage/password_store.dart';
 import 'monitors_screen.dart';
 
 /// Default port of the REAPER extension (docs/protocol.md).
 const int defaultPort = 8790;
 
-/// Manual address entry: the musician types the laptop's address and port.
+/// Manual address entry: the musician types the laptop's address and port,
+/// and the band password, which Bielik remembers after a successful connection.
 class ConnectScreen extends StatefulWidget {
-  const ConnectScreen({super.key});
+  const ConnectScreen({super.key, required this.passwordStore});
+
+  final PasswordStore passwordStore;
 
   @override
   State<ConnectScreen> createState() => _ConnectScreenState();
@@ -17,13 +21,28 @@ class ConnectScreen extends StatefulWidget {
 class _ConnectScreenState extends State<ConnectScreen> {
   final _host = TextEditingController();
   final _port = TextEditingController(text: '$defaultPort');
+  final _password = TextEditingController();
   bool _connecting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPassword();
+  }
+
+  Future<void> _loadPassword() async {
+    final password = await widget.passwordStore.read();
+    if (mounted && password != null && _password.text.isEmpty) {
+      _password.text = password;
+    }
+  }
 
   @override
   void dispose() {
     _host.dispose();
     _port.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -38,8 +57,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
       _connecting = true;
       _error = null;
     });
+    final password = _password.text;
     try {
-      final client = await MixerClient.connect(host: host, port: port);
+      final client = await MixerClient.connect(
+        host: host,
+        port: port,
+        password: password,
+      );
+      await widget.passwordStore.write(password);
       if (!mounted) {
         await client.close();
         return;
@@ -50,9 +75,19 @@ class _ConnectScreenState extends State<ConnectScreen> {
         ),
       );
       await client.close();
-    } on Exception {
+    } on MixerConnectionException catch (error) {
       if (mounted) {
-        setState(() => _error = 'Nie udało się połączyć z $host:$port.');
+        setState(
+          () => _error = switch (error.failure) {
+            ConnectionFailure.badPassword =>
+              'Złe hasło. Zapytaj zespół o aktualne hasło.',
+            ConnectionFailure.unsupportedVersion =>
+              'Rozszerzenie w REAPERze ma inną wersję niż Bielik. '
+                  'Zaktualizuj Rozszerzenie albo Bielika.',
+            ConnectionFailure.network =>
+              'Nie udało się połączyć z $host:$port.',
+          },
+        );
       }
     } finally {
       if (mounted) setState(() => _connecting = false);
@@ -80,6 +115,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
             controller: _port,
             decoration: const InputDecoration(labelText: 'Port'),
             keyboardType: TextInputType.number,
+          ),
+          TextField(
+            key: const Key('password'),
+            controller: _password,
+            decoration: const InputDecoration(labelText: 'Hasło zespołu'),
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
           ),
           const SizedBox(height: 16),
           FilledButton(

@@ -7,7 +7,8 @@ import 'protocol_examples.dart';
 /// In-process stand-in for the REAPER extension. For every connection it plays
 /// the server's side of a shared protocol example: it waits for each `client`
 /// step (checking that the app sent a matching message) and sends each
-/// `server` step. Mismatches are collected in [problems].
+/// `server` step, and closes the connection at a `closed` step. Mismatches are
+/// collected in [problems].
 class FakeMixerServer {
   FakeMixerServer._(this._server, this._example) {
     _server.listen(_onRequest);
@@ -40,6 +41,10 @@ class FakeMixerServer {
     _sockets.add(socket);
     final incoming = StreamIterator<dynamic>(socket);
     for (final step in _example.steps) {
+      if (step['closed'] == true) {
+        await socket.close();
+        return;
+      }
       if (step.containsKey('server')) {
         socket.add(jsonEncode(step['server']));
         continue;

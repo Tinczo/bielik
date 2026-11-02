@@ -22,9 +22,10 @@ class Monitor {
   String toString() => 'Monitor($id, $name)';
 }
 
-Map<String, Object?> helloMessage() => {
+Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
+      'password': password,
     };
 
 /// A message sent by the server.
