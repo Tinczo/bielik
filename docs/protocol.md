@@ -4,7 +4,7 @@ Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja pro
 
 ## Transport
 
-- WebSocket bez TLS (sieć lokalna), domyślny port **8790** (nie 8080, którego używa web remote REAPERa).
+- WebSocket bez TLS (sieć lokalna), domyślny port **8790** (nie 8080, którego używa web remote REAPERa). Port i hasło zespołu ustawia się w REAPERze akcją „Mobile mixer: Settings (port, band password)...”; zapisują się w ExtState, a zmiana portu restartuje serwer bez restartu REAPERa.
 - Każda wiadomość to jedna ramka tekstowa z obiektem JSON, który ma pole `type` (string). Ramki binarne są ignorowane.
 - Identyfikatory odsłuchów i źródeł to GUID-y ścieżek w formacie REAPERa, np. `{1B6A2C10-0001-4A3E-9C1D-000000000001}`.
 - Tekst jest w UTF-8.
