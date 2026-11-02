@@ -1,0 +1,96 @@
+// Contract test: replays every shared example exchange from protocol/examples against
+// the real server running on a fake project, through a real WebSocket client.
+#include <doctest/doctest.h>
+
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+#include "fake_project.h"
+#include "test_client.h"
+#include "transport/mixer_server.h"
+
+namespace fs = std::filesystem;
+using nlohmann::json;
+using namespace rmm;
+using namespace rmm::testing;
+
+namespace {
+
+json loadExample(const fs::path& path) {
+  std::ifstream file(path);
+  REQUIRE_MESSAGE(file.good(), "cannot open " << path.string());
+  return json::parse(file);
+}
+
+// The protocol's matching rule (docs/protocol.md): every field of the expected message
+// must be present and equal in the actual one; objects may carry extra fields.
+bool matches(const json& expected, const json& actual) {
+  if (expected.is_object()) {
+    if (!actual.is_object()) return false;
+    for (const auto& [key, value] : expected.items()) {
+      if (!actual.contains(key) || !matches(value, actual[key])) return false;
+    }
+    return true;
+  }
+  if (expected.is_array()) {
+    if (!actual.is_array() || actual.size() != expected.size()) return false;
+    for (size_t i = 0; i < expected.size(); ++i) {
+      if (!matches(expected[i], actual[i])) return false;
+    }
+    return true;
+  }
+  return expected == actual;
+}
+
+FakeProject projectFrom(const json& example) {
+  FakeProject project;
+  for (const auto& track : example["project"]["tracks"]) {
+    project.trackList.push_back({track["guid"].get<std::string>(), track["name"].get<std::string>()});
+  }
+  return project;
+}
+
+void replay(const json& example) {
+  FakeProject project = projectFrom(example);
+  const int port = nextTestPort();
+  MixerServer server(project, port, "127.0.0.1");
+  std::string error;
+  REQUIRE_MESSAGE(server.start(&error), error);
+  TestClient client(port);
+  REQUIRE(client.isOpen());
+
+  int stepIndex = 0;
+  for (const auto& step : example["steps"]) {
+    CAPTURE(stepIndex);
+    if (step.contains("client")) {
+      const json& message = step["client"];
+      client.send(message.is_string() ? message.get<std::string>() : message.dump());
+    } else {
+      const json& expected = step["server"];
+      const auto received = client.nextMessage(server);
+      REQUIRE_MESSAGE(received.has_value(), "no message, expected " << expected.dump());
+      CAPTURE(*received);
+      CHECK_MESSAGE(matches(expected, json::parse(*received)), "expected " << expected.dump());
+    }
+    ++stepIndex;
+  }
+
+  // Errors never close the connection in v1, and nothing unexpected follows.
+  const auto extra = client.nextMessage(server, std::chrono::milliseconds(100));
+  CHECK_MESSAGE(!extra.has_value(), "unexpected message " << extra.value_or(""));
+  CHECK(client.isOpen());
+  server.stop();
+}
+
+}  // namespace
+
+TEST_CASE("server follows every shared protocol example") {
+  int count = 0;
+  for (const auto& entry : fs::directory_iterator(PROTOCOL_EXAMPLES_DIR)) {
+    if (entry.path().extension() != ".json") continue;
+    SUBCASE(entry.path().filename().string().c_str()) { replay(loadExample(entry.path())); }
+    ++count;
+  }
+  CHECK(count > 0);
+}
