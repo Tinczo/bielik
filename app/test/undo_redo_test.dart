@@ -64,17 +64,18 @@ Future<FakeMixerServer> _startAndOpen(
   return server;
 }
 
-/// Drags the slider of [sourceId] all the way to the left (−∞) and waits
-/// until the server got the final level.
+/// Drags the slider of [sourceId] all the way to the left (−∞) and, unless
+/// told otherwise, waits until the server got the final level.
 Future<void> _silence(
   WidgetTester tester,
   FakeMixerServer server,
-  String sourceId,
-) async {
+  String sourceId, {
+  bool waitForServer = true,
+}) async {
   final slider = _sliderOf(sourceId);
   await tester.drag(slider, Offset(-tester.getSize(slider).width, 0));
   await tester.pump(kDoubleTapTimeout);
-  await _waitForLevel(tester, server, sourceId, 0.0);
+  if (waitForServer) await _waitForLevel(tester, server, sourceId, 0.0);
 }
 
 /// Double taps the slider of [sourceId] (reset to 0 dB) and waits until the
@@ -106,6 +107,14 @@ List<Map<String, dynamic>> _setLevels(FakeMixerServer server) => server
     .where((message) => message['type'] == 'set_level')
     .toList();
 
+/// The set_level message for [sourceId] in the test's monitor.
+Map<String, Object> _setLevel(String sourceId, double level) => {
+  'type': 'set_level',
+  'monitorId': _monitorId,
+  'sourceId': sourceId,
+  'level': level,
+};
+
 /// Taps [button] and waits until the server got a set_level for it.
 Future<Map<String, dynamic>> _press(
   WidgetTester tester,
@@ -129,21 +138,63 @@ void main() {
     await _silence(tester, server, _guitarId);
     expect(_levelIn('Gitara', '−∞ dB'), findsOneWidget);
 
-    expect(await _press(tester, server, _undo), {
-      'type': 'set_level',
-      'monitorId': _monitorId,
-      'sourceId': _guitarId,
-      'level': 0.5,
-    });
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
     expect(_levelIn('Gitara', '−6.0 dB'), findsOneWidget);
 
-    expect(await _press(tester, server, _redo), {
-      'type': 'set_level',
-      'monitorId': _monitorId,
-      'sourceId': _guitarId,
-      'level': 0.0,
-    });
+    expect(await _press(tester, server, _redo), _setLevel(_guitarId, 0.0));
     expect(_levelIn('Gitara', '−∞ dB'), findsOneWidget);
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('each gesture is one step, a reset to 0 dB too; undo goes back '
+      'step by step and a new gesture clears redo', (tester) async {
+    final server = await _startAndOpen(tester);
+    expect(_enabled(tester, _undo), isFalse);
+    expect(_enabled(tester, _redo), isFalse);
+
+    await _reset(tester, server, _guitarId); // 0.5 -> 1.0
+    await _silence(tester, server, _vocalId); // 1.0 -> 0.0
+    await _silence(tester, server, _guitarId); // 1.0 -> 0.0
+    expect(_enabled(tester, _undo), isTrue);
+    expect(_enabled(tester, _redo), isFalse);
+
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 1.0));
+    expect(await _press(tester, server, _undo), _setLevel(_vocalId, 1.0));
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
+    expect(_enabled(tester, _undo), isFalse);
+    expect(_enabled(tester, _redo), isTrue);
+    expect(_levelIn('Gitara', '−6.0 dB'), findsOneWidget);
+    expect(_levelIn('Wokal', '0.0 dB'), findsOneWidget);
+
+    expect(await _press(tester, server, _redo), _setLevel(_guitarId, 1.0));
+    expect(_enabled(tester, _redo), isTrue);
+
+    await _silence(tester, server, _vocalId);
+    expect(_enabled(tester, _redo), isFalse);
+    expect(await _press(tester, server, _undo), _setLevel(_vocalId, 1.0));
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('levels pushed by the server are not undone; undo restores the '
+      'level from before the gesture even if someone changed it since', (
+    tester,
+  ) async {
+    // level-push.json: Gitara 0.5, Wokal 1.0, then two changes in REAPER.
+    final server = await _startAndOpen(tester, 'level-push.json');
+
+    server.changeProject(); // Gitara -> 1.0, Wokal -> 0.5
+    await pumpUntilFound(tester, _levelIn('Wokal', '−6.0 dB'));
+    expect(_enabled(tester, _undo), isFalse);
+
+    // The fake server collects our messages only once its script is over.
+    await _silence(tester, server, _guitarId, waitForServer: false);
+    server.changeProject(); // Gitara -> 0.25, from another phone
+    await _waitForLevel(tester, server, _guitarId, 0.0);
+    await pumpUntilFound(tester, _levelIn('Gitara', '−12.0 dB'));
+
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 1.0));
+    expect(_levelIn('Gitara', '0.0 dB'), findsOneWidget);
+    expect(_enabled(tester, _undo), isFalse);
     expect(server.problems, isEmpty);
   });
 }
