@@ -8,8 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(NOT MSVC)
-  message(FATAL_ERROR "REAPER extensions on Windows must be built with MSVC "
-                      "(use -G \"Visual Studio 17 2022\" -A x64).")
+  message(FATAL_ERROR "REAPER extensions on Windows must be built with MSVC: run the "
+                      "CMake presets through msvc.cmd (.\msvc.cmd cmake --preset default).")
 endif()
 
 include(cmake/Dependencies.cmake)
