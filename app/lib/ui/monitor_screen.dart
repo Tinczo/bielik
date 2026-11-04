@@ -77,16 +77,21 @@ class _MonitorScreenState extends State<MonitorScreen> {
               ),
             );
           }
-          return ListView(
-            key: const Key('sources'),
-            children: [
-              for (final source in monitor.sources)
-                SourceTile(
-                  key: ValueKey(source.id),
-                  source: source,
-                  onLevel: (level) => widget.client.setLevel(source.id, level),
-                ),
-            ],
+          return ValueListenableBuilder<ConnectionStatus>(
+            valueListenable: widget.client.connection,
+            builder: (context, connection, _) => ListView(
+              key: const Key('sources'),
+              children: [
+                for (final source in monitor.sources)
+                  SourceTile(
+                    key: ValueKey(source.id),
+                    source: source,
+                    enabled: connection == ConnectionStatus.connected,
+                    onLevel: (level) =>
+                        widget.client.setLevel(source.id, level),
+                  ),
+              ],
+            ),
           );
         },
       ),

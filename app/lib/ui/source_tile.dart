@@ -10,11 +10,20 @@ import 'level_format.dart';
 ///
 /// While the musician drags, the new level is sent live but at most once per
 /// [sendInterval]; the final value is always sent on release. A double tap
-/// resets the level to 0 dB.
+/// resets the level to 0 dB. A disabled tile (e.g. while disconnected) only
+/// shows the level.
 class SourceTile extends StatefulWidget {
-  const SourceTile({super.key, required this.source, required this.onLevel});
+  const SourceTile({
+    super.key,
+    required this.source,
+    required this.onLevel,
+    this.enabled = true,
+  });
 
   final Source source;
+
+  /// Whether the musician can change the level now.
+  final bool enabled;
 
   /// Called with each level to send to the server.
   final ValueChanged<double> onLevel;
@@ -60,6 +69,18 @@ class _SourceTileState extends State<SourceTile> {
   }
 
   @override
+  void didUpdateWidget(SourceTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) {
+      // A drag cut short by a disconnect: nothing more can be sent.
+      _throttle?.cancel();
+      _throttle = null;
+      _unsentLevel = null;
+      _dragPosition = null;
+    }
+  }
+
+  @override
   void dispose() {
     _throttle?.cancel();
     super.dispose();
@@ -68,23 +89,31 @@ class _SourceTileState extends State<SourceTile> {
   @override
   Widget build(BuildContext context) {
     final source = widget.source;
+    final enabled = widget.enabled;
     return ListTile(
+      enabled: enabled,
       title: Text(source.name),
       trailing: Text(formatLevelDb(_level)),
       subtitle: GestureDetector(
-        onDoubleTap: () => _sendFinal(1.0),
+        onDoubleTap: enabled ? () => _sendFinal(1.0) : null,
         child: Slider(
           key: Key('level-${source.id}'),
           value: _dragPosition ?? positionFromLevel(source.level),
-          onChangeStart: (position) => setState(() => _dragPosition = position),
-          onChanged: (position) {
-            setState(() => _dragPosition = position);
-            _sendThrottled(levelFromPosition(position));
-          },
-          onChangeEnd: (position) {
-            setState(() => _dragPosition = null);
-            _sendFinal(levelFromPosition(position));
-          },
+          onChangeStart: enabled
+              ? (position) => setState(() => _dragPosition = position)
+              : null,
+          onChanged: enabled
+              ? (position) {
+                  setState(() => _dragPosition = position);
+                  _sendThrottled(levelFromPosition(position));
+                }
+              : null,
+          onChangeEnd: enabled
+              ? (position) {
+                  setState(() => _dragPosition = null);
+                  _sendFinal(levelFromPosition(position));
+                }
+              : null,
         ),
       ),
     );
