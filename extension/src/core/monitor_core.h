@@ -60,6 +60,7 @@ class MonitorCore {
   void sendMonitor(ClientId client, MonitorState monitor);
   void subscribedMonitorChanged(ClientId client);
   void sendError(ClientId client, std::string_view code, std::string_view message);
+  void sendNoMonitor(ClientId client, const std::string& monitorId);
   void sendJson(ClientId client, const nlohmann::json& message);
   void refuse(ClientId client, std::string_view code, std::string_view message);
 

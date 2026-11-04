@@ -15,6 +15,12 @@ std::string guidOf(MediaTrack* track) {
   return guid;
 }
 
+// The track a receive comes from. For P_ parameters the returned pointer is the value itself.
+MediaTrack* receiveSource(MediaTrack* track, int receive) {
+  return static_cast<MediaTrack*>(
+      GetSetTrackSendInfo(track, kReceives, receive, "P_SRCTRACK", nullptr));
+}
+
 MediaTrack* findTrack(const std::string& guid) {
   const int count = CountTracks(kActiveProject);
   for (int i = 0; i < count; ++i) {
@@ -97,8 +103,7 @@ std::vector<Receive> ReaperProjectAdapter::receives(const std::string& trackGuid
   if (!track) return result;
   const int count = GetTrackNumSends(track, kReceives);
   for (int i = 0; i < count; ++i) {
-    // For P_ parameters the returned pointer is the value itself.
-    auto* source = static_cast<MediaTrack*>(GetSetTrackSendInfo(track, kReceives, i, "P_SRCTRACK", nullptr));
+    MediaTrack* source = receiveSource(track, i);
     if (!source) continue;
     result.push_back({guidOf(source), GetTrackSendInfo_Value(track, kReceives, i, "D_VOL")});
   }
@@ -111,7 +116,7 @@ bool ReaperProjectAdapter::setReceiveLevel(const std::string& trackGuid,
   if (!track) return false;
   const int count = GetTrackNumSends(track, kReceives);
   for (int i = 0; i < count; ++i) {
-    auto* source = static_cast<MediaTrack*>(GetSetTrackSendInfo(track, kReceives, i, "P_SRCTRACK", nullptr));
+    MediaTrack* source = receiveSource(track, i);
     if (!source || guidOf(source) != sourceGuid) continue;
     // Written like a control-surface fader move, not with SetTrackSendInfo_Value: the
     // mixer UI follows the change. SetTrackSendUIVol over CSurf_OnRecvVolumeChange because

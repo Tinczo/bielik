@@ -22,6 +22,10 @@ bool sameStructure(const MonitorState& a, const MonitorState& b) {
   return true;
 }
 
+bool hasString(const json& message, const char* field) {
+  return message.contains(field) && message[field].is_string();
+}
+
 }  // namespace
 
 MonitorCore::MonitorCore(ReaperProject& project, Send send, Close close)
@@ -78,14 +82,14 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
   applyPendingLevels();
 
   if (type == "subscribe") {
-    if (!message.contains("monitorId") || !message["monitorId"].is_string()) {
+    if (!hasString(message, "monitorId")) {
       sendError(client, "invalid_message", "subscribe needs a string 'monitorId'");
       return;
     }
     const std::string monitorId = message["monitorId"];
     const auto monitor = monitorState(project_, monitorId);
     if (!monitor) {
-      sendError(client, "not_found", "no monitor with id " + monitorId);
+      sendNoMonitor(client, monitorId);
       return;
     }
     state.subscribedMonitor = monitorId;
@@ -97,11 +101,8 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
 }
 
 void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message) {
-  const auto isString = [&](const char* field) {
-    return message.contains(field) && message[field].is_string();
-  };
-  if (!isString("monitorId") || !isString("sourceId") || !message.contains("level") ||
-      !message["level"].is_number()) {
+  if (!hasString(message, "monitorId") || !hasString(message, "sourceId") ||
+      !message.contains("level") || !message["level"].is_number()) {
     sendError(client, "invalid_message",
               "set_level needs string 'monitorId' and 'sourceId' and a number 'level'");
     return;
@@ -115,7 +116,7 @@ void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message)
   }
   const auto monitor = monitorState(project_, monitorId);
   if (!monitor) {
-    sendError(client, "not_found", "no monitor with id " + monitorId);
+    sendNoMonitor(client, monitorId);
     return;
   }
   const bool hasSource = std::any_of(monitor->sources.begin(), monitor->sources.end(),
@@ -204,6 +205,10 @@ void MonitorCore::sendMonitors(ClientId client, std::vector<Monitor> monitors) {
 
 void MonitorCore::sendError(ClientId client, std::string_view code, std::string_view message) {
   sendJson(client, {{"type", "error"}, {"code", code}, {"message", message}});
+}
+
+void MonitorCore::sendNoMonitor(ClientId client, const std::string& monitorId) {
+  sendError(client, "not_found", "no monitor with id " + monitorId);
 }
 
 void MonitorCore::refuse(ClientId client, std::string_view code, std::string_view message) {
