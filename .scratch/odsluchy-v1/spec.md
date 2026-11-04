@@ -1,6 +1,6 @@
 # Spec: Odsłuchy v1 — sterowanie poziomami źródeł z telefonu
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

@@ -6,3 +6,15 @@ CLAUDE.local.md
 
 # C++ build
 extension/build/
+
+# Robocze kopie agentów
+.claude/worktrees/
+
+# Notatki robocze implementerów
+.scratch/**/implement-notes.md
+
+# Lokalne ustawienia edytora
+app/.vscode/
+
+# Pamięć podręczna Kotlina
+app/android/.kotlin/

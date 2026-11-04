@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Rozszerzenie ogłasza usługę `_reaper-mixer._tcp` z nazwą komputera i aktualnym portem, a przy zamknięciu ją wycofuje.
 - [ ] Bielik przegląda usługę i pokazuje listę wykrytych laptopów oraz opcję ręcznego adresu.

@@ -1,0 +1,10 @@
+{
+  "description": "A protocol version the server does not speak gets an 'unsupported_version' error and the server closes the connection. The version is checked before the password.",
+  "settings": { "password": "próba2026" },
+  "project": { "tracks": [] },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 2, "password": "zgaduję" } },
+    { "server": { "type": "error", "code": "unsupported_version" } },
+    { "closed": true }
+  ]
+}

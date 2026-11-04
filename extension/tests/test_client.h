@@ -1,0 +1,53 @@
+#pragma once
+
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+
+#include "transport/mixer_server.h"
+
+namespace ix {
+class WebSocket;
+}
+
+namespace rmm::testing {
+
+// Each test server gets its own port so a slow socket close cannot affect the next test.
+int nextTestPort();
+
+// A real WebSocket client connected to a MixerServer on localhost.
+class TestClient {
+ public:
+  explicit TestClient(int port);
+  ~TestClient();
+
+  bool isOpen() const;
+  void send(const std::string& text);
+
+  // Waits for the next message, pumping the server's main-thread timer meanwhile.
+  std::optional<std::string> nextMessage(MixerServer& server,
+                                         std::chrono::milliseconds timeout = std::chrono::seconds(2));
+  // Same, with any main-thread pump (e.g. MixerService::pump).
+  std::optional<std::string> nextMessage(const std::function<void()>& pump,
+                                         std::chrono::milliseconds timeout = std::chrono::seconds(2));
+
+  // Waits until the server closes the connection, pumping the server meanwhile.
+  bool waitClosed(MixerServer& server, std::chrono::milliseconds timeout = std::chrono::seconds(2));
+  // Same, with any main-thread pump (or none, e.g. after the server stopped).
+  bool waitClosed(const std::function<void()>& pump,
+                  std::chrono::milliseconds timeout = std::chrono::seconds(2));
+
+ private:
+  std::unique_ptr<ix::WebSocket> socket_;
+  mutable std::mutex mutex_;
+  std::condition_variable changed_;
+  std::deque<std::string> messages_;
+  bool open_ = false;
+};
+
+}  // namespace rmm::testing

@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Automatyczne ponowne łączenie z narastającym odstępem, a po połączeniu ponowna subskrypcja tego samego odsłuchu.
 - [ ] W stanie rozłączonym suwaki są nieaktywne i widać wskaźnik połączenia.

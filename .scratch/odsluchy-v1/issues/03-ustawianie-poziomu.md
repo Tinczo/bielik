@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `set_level` (`monitorId`, `sourceId`, `level`) ustawia głośność właściwego receive'a. To samo źródło w innym odsłuchu się nie zmienia.
 - [ ] Zapis odświeża UI REAPERa bez zaśmiecania historii undo. Wybór między `CSurf_OnRecvVolumeChange` a `SetTrackSendUIVol` jest udokumentowany.

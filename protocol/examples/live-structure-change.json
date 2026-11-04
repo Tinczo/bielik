@@ -1,0 +1,72 @@
+{
+  "description": "The project changes while a client watches a monitor: a new monitor appears (monitors is sent again), and the watched monitor gets a new source and a renamed source (the full monitor is sent again). Levels stay the same here (level changes are pushed as level messages, see level-push.json).",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      { "guid": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }]
+      }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 1 } },
+    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [{ "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" }]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [{ "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }]
+      }
+    },
+    {
+      "project": {
+        "tracks": [
+          {
+            "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+            "name": "Odsłuch: Wokal",
+            "receives": [
+              { "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 },
+              { "source": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "level": 1.0 }
+            ]
+          },
+          { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },
+          { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara akustyczna" },
+          { "guid": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja" },
+          { "guid": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Odsłuch: Perkusja" }
+        ]
+      }
+    },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [
+          { "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" },
+          { "id": "{1B6A2C10-0011-4A3E-9C1D-000000000011}", "name": "Perkusja" }
+        ]
+      }
+    },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara akustyczna", "level": 0.5 },
+          { "id": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja", "level": 1.0 }
+        ]
+      }
+    }
+  ]
+}

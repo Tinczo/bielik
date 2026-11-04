@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Rozszerzenie (C++17, MSVC, CMake, Windows x64) buduje się do jednego .dll, ładuje się w REAPERze 7.24, a funkcje API ładuje dynamicznie i sprawdza ich obecność.
 - [ ] Serwer WebSocket działa na osobnym wątku. Wiadomości trafiają na główny wątek przez kolejkę opróżnianą timerem REAPERa, a odpowiedzi wracają kolejką do wątku sieciowego (ADR-0001).
