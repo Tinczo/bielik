@@ -10,7 +10,7 @@ Pilot do odsłuchów zespołu. Każdy muzyk ustawia z telefonu, jak głośno sł
 
 ## Pobieranie
 
-Najnowsza wersja jest w [Releases](https://github.com/Tinczo/bielik/releases/latest):
+Najnowsza wersja jest w [Releases](https://github.com/Tinczo/bielik/releases):
 
 - `bielik-….apk`: aplikacja na telefony z Androidem 7.0 lub nowszym. Telefon może poprosić o zgodę na instalację spoza Sklepu Play.
 - `reaper_mobile_mixer.dll`: Rozszerzenie dla REAPERa na Windows x64, instalowane tylko na laptopie. Zamknij REAPERa, skopiuj plik do `%APPDATA%\REAPER\UserPlugins` i uruchom go ponownie.
