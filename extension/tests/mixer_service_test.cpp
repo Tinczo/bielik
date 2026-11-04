@@ -234,6 +234,20 @@ TEST_CASE("clients leaving while the server writes to them do not block stopping
   listening.stop();  // never returns if a connection thread is stuck
 }
 
+TEST_CASE("stopping right after a client connected does not hang") {
+  FakeProject project;
+  const int port = nextTestPort();
+  for (int round = 0; round < 200; ++round) {
+    MixerServer server(project, port, "127.0.0.1");
+    std::string error;
+    REQUIRE_MESSAGE(server.start(&error), error);
+    TestClient client(port);
+    REQUIRE(client.isOpen());
+
+    server.stop();  // never returns if the connection's thread keeps spinning
+  }
+}
+
 TEST_CASE("stopping twice, or stopping a service that never started, is harmless") {
   FakeProject project;
   FakeSettingsStore store;
