@@ -9,7 +9,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Rozszerzenie reaguje na `SetTrackListChange`, `SetTrackTitle` i zmianę aktywnego projektu, przelicza model i wysyła `monitors` albo pełny `monitor` tylko przy faktycznej różnicy.
 - [ ] Usunięcie subskrybowanego odsłuchu (także przez zmianę nazwy bez prefiksu) → `monitor_removed`.

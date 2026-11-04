@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Historia jest tylko w Bieliku, osobna dla każdego odsłuchu. Protokół i Rozszerzenie się nie zmieniają, a cofnięcie to zwykłe `set_level`.
 - [ ] Jeden gest na jednym źródle (także reset do 0 dB) to jeden krok: (źródło, poziom przed, poziom po).

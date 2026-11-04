@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Rozszerzenie wykrywa zmiany głośności receive'ów (ukryta powierzchnia kontrolna, `CSURF_EXT_SETRECVVOLUME`) i wysyła `level` subskrybentom tego odsłuchu, także nadawcy (echo).
 - [ ] Jako siatka bezpieczeństwa timer porównuje `GetProjectStateChangeCount` i wysyła tylko różnice.

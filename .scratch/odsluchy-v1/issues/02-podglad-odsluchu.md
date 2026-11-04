@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `subscribe` z `monitorId` → pełny stan `monitor` (źródła: `id` = GUID źródła, `name`, `level` liniowo, 1.0 = 0 dB).
 - [ ] Źródła to receive'y ścieżki-odsłuchu. Przy dwóch receive'ach z tego samego źródła pokazywany jest tylko pierwszy.

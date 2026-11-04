@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `hello` niesie hasło. Złe hasło → `error` `bad_password` i zamknięcie połączenia. Niezgodna wersja → `error` `unsupported_version` i zamknięcie.
 - [ ] Hasło i port są zapisywane w ExtState REAPERa i ustawiane akcją albo okienkiem w REAPERze. Domyślny port jest inny niż 8080.
