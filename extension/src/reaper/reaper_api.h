@@ -9,6 +9,7 @@
 #define REAPERAPI_WANT_GetTrackGUID
 #define REAPERAPI_WANT_guidToString
 #define REAPERAPI_WANT_GetTrackName
+#define REAPERAPI_WANT_MarkProjectDirty
 #define REAPERAPI_WANT_GetTrackNumSends
 #define REAPERAPI_WANT_GetSetTrackSendInfo
 #define REAPERAPI_WANT_GetTrackSendInfo_Value

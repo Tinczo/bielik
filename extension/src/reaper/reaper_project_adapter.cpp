@@ -120,7 +120,11 @@ bool ReaperProjectAdapter::setReceiveLevel(const std::string& trackGuid,
     // end-of-gesture, so we never send "end of edit" (1), which is what adds an undo point.
     // A negative index addresses receives: -1 is the first one.
     constexpr int kTweak = 0;
-    return SetTrackSendUIVol(track, -1 - i, level, kTweak);
+    if (!SetTrackSendUIVol(track, -1 - i, level, kTweak)) return false;
+    // A tweak alone may not mark the project as changed, and a mix set from the phones must
+    // not be lost on close. This asks for a save prompt without adding an undo point.
+    MarkProjectDirty(kActiveProject);
+    return true;
   }
   return false;
 }

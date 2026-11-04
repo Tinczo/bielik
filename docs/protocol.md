@@ -100,7 +100,11 @@ Klient ustawia poziom źródła w odsłuchu wiadomością `set_level`:
 - Aplikacja wysyła w trakcie gestu najwyżej ~25 `set_level` na sekundę i zawsze wysyła wartość końcową po puszczeniu suwaka.
 - Brak lub zły typ `monitorId`, `sourceId`, `level`, a także `level` ujemny → `invalid_message`. Nieznany odsłuch albo źródło, którego ten odsłuch nie ma → `not_found`.
 
-Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, level, 0)`, czyli jak ruch suwaka na kontrolerze: UI miksera się odświeża. Wybrane zamiast `CSurf_OnRecvVolumeChange`, bo tak samo robi wbudowany web remote REAPERa (`csurf_www.cpp`), a argument `isend` pozwala jawnie powiedzieć „ruch w trakcie” (`0`). Łącze nie ma końca gestu, więc Rozszerzenie nigdy nie wysyła „koniec edycji” (`1`), który tworzy punkt undo — dzięki temu wiadomości z telefonów nie zaśmiecają historii undo. Do potwierdzenia ręcznie w REAPERze 7.24.
+Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, level, 0)`, czyli jak ruch suwaka na kontrolerze: UI miksera się odświeża. Wybrane zamiast `CSurf_OnRecvVolumeChange`, bo tak samo robi wbudowany web remote REAPERa (`csurf_www.cpp`), a argument `isend` pozwala jawnie powiedzieć „ruch w trakcie” (`0`). Łącze nie ma końca gestu, więc Rozszerzenie nigdy nie wysyła „koniec edycji” (`1`), który tworzy punkt undo — dzięki temu wiadomości z telefonów nie zaśmiecają historii undo.
+
+Po każdym udanym zapisie Rozszerzenie woła też `MarkProjectDirty(aktywny projekt)`. Zapis z `isend = 0` nie tworzy punktu undo i może nie oznaczyć projektu jako zmienionego, a wtedy REAPER przy zamknięciu nie zapytałby o zapis i miks ustawiony z telefonów by przepadł. `MarkProjectDirty` tylko oznacza projekt do zapisania (o ile w preferencjach REAPERa włączone jest pytanie o zapis, zob. opis funkcji w SDK) i nie dodaje punktu undo.
+
+Do potwierdzenia ręcznie w REAPERze 7.24: brak nowych punktów undo i pytanie o zapis przy zamknięciu projektu po zmianie z telefonu (lista w `docs/reczna-weryfikacja.md`).
 
 ## Zmiany poziomów na żywo
 
