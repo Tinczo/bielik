@@ -4,6 +4,11 @@
 
 #include <nlohmann/json.hpp>
 
+#include <atomic>
+#include <memory>
+#include <string>
+#include <thread>
+
 #include "fake_project.h"
 #include "test_client.h"
 #include "transport/mixer_service.h"
@@ -196,6 +201,37 @@ TEST_CASE("destroying a running service without stop() still shuts it down clean
   MixerService restarted(project, store, "127.0.0.1");
   CHECK(restarted.start());
   restarted.stop();
+}
+
+TEST_CASE("clients leaving while the server writes to them do not block stopping") {
+  FakeProject project;
+  project.trackList.push_back({"{1B6A2C10-0010-4A3E-9C1D-000000000010}", "Odsłuch: Wokal"});
+  const int port = nextTestPort();
+  MixerServer listening(project, port, "127.0.0.1");
+  REQUIRE(listening.start());
+
+  int renames = 0;
+  const auto rename = [&] {
+    project.trackList[0].name = "Odsłuch: Wokal " + std::to_string(++renames);
+    project.changed();
+    listening.pump();
+  };
+  for (int round = 0; round < 300; ++round) {
+    auto client = std::make_unique<TestClient>(port);
+    REQUIRE(client->isOpen());
+    client->send(helloWith("").dump());
+    REQUIRE(client->nextMessage(listening).has_value());  // welcome
+
+    std::atomic<bool> gone{false};
+    std::thread leaving([&] {
+      client.reset();
+      gone = true;
+    });
+    while (!gone) rename();  // keeps the server's sender thread writing to the client
+    leaving.join();
+  }
+
+  listening.stop();  // never returns if a connection thread is stuck
 }
 
 TEST_CASE("stopping twice, or stopping a service that never started, is harmless") {

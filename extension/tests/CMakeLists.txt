@@ -14,3 +14,5 @@ target_compile_definitions(extension_tests PRIVATE
 rmm_compile_options(extension_tests)
 
 add_test(NAME extension_tests COMMAND extension_tests)
+# A deadlock in the transport must fail the run, not hang it.
+set_tests_properties(extension_tests PROPERTIES TIMEOUT 120)

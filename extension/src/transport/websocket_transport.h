@@ -14,6 +14,7 @@
 namespace ix {
 class WebSocket;
 class WebSocketServer;
+struct WebSocketMessage;
 }  // namespace ix
 
 namespace rmm {
@@ -53,6 +54,10 @@ class WebSocketTransport {
     bool close = false;
   };
 
+  class ClientState;
+
+  void onMessage(const std::weak_ptr<ix::WebSocket>& socket, ClientState& state,
+                 const std::unique_ptr<ix::WebSocketMessage>& msg);
   void pushEvent(Event event);
   void senderLoop();
 
@@ -67,10 +72,9 @@ class WebSocketTransport {
   bool stopping_ = false;
   std::thread sender_;
 
-  // Open connections; guarded by connectionsMutex_. Pointers are removed on close,
-  // before IXWebSocket destroys the connection.
+  // Open connections; guarded by connectionsMutex_.
   std::mutex connectionsMutex_;
-  std::unordered_map<ClientId, ix::WebSocket*> connections_;
+  std::unordered_map<ClientId, std::weak_ptr<ix::WebSocket>> connections_;
   ClientId nextClientId_ = 1;
 };
 

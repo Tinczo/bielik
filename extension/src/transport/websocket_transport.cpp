@@ -6,52 +6,55 @@
 
 namespace rmm {
 
-namespace {
-
 // Per-connection state carrying our client id.
-class ClientState : public ix::ConnectionState {
+class WebSocketTransport::ClientState : public ix::ConnectionState {
  public:
   ClientId client = 0;
 };
-
-}  // namespace
 
 WebSocketTransport::WebSocketTransport(std::string host, int port)
     : server_(std::make_unique<ix::WebSocketServer>(port, host)) {
   server_->disablePerMessageDeflate();
   server_->setConnectionStateFactory([] { return std::make_shared<ClientState>(); });
-  server_->setOnClientMessageCallback([this](std::shared_ptr<ix::ConnectionState> state,
-                                             ix::WebSocket& socket,
-                                             const ix::WebSocketMessagePtr& msg) {
-    auto& clientState = static_cast<ClientState&>(*state);
-    switch (msg->type) {
-      case ix::WebSocketMessageType::Open: {
-        {
-          std::lock_guard lock(connectionsMutex_);
-          clientState.client = nextClientId_++;
-          connections_[clientState.client] = &socket;
-        }
-        pushEvent({Event::Kind::Connected, clientState.client, {}});
-        break;
-      }
-      case ix::WebSocketMessageType::Message:
-        if (!msg->binary) pushEvent({Event::Kind::Message, clientState.client, msg->str});
-        break;
-      case ix::WebSocketMessageType::Close: {
-        {
-          std::lock_guard lock(connectionsMutex_);
-          connections_.erase(clientState.client);
-        }
-        pushEvent({Event::Kind::Disconnected, clientState.client, {}});
-        break;
-      }
-      default:
-        break;
+  server_->setOnConnectionCallback([this](std::weak_ptr<ix::WebSocket> socket,
+                                          std::shared_ptr<ix::ConnectionState> state) {
+    if (const auto opened = socket.lock()) {
+      opened->setOnMessageCallback([this, socket, state](const ix::WebSocketMessagePtr& msg) {
+        onMessage(socket, static_cast<ClientState&>(*state), msg);
+      });
     }
   });
 }
 
 WebSocketTransport::~WebSocketTransport() { stop(); }
+
+void WebSocketTransport::onMessage(const std::weak_ptr<ix::WebSocket>& socket, ClientState& state,
+                                   const ix::WebSocketMessagePtr& msg) {
+  switch (msg->type) {
+    case ix::WebSocketMessageType::Open: {
+      {
+        std::lock_guard lock(connectionsMutex_);
+        state.client = nextClientId_++;
+        connections_[state.client] = socket;
+      }
+      pushEvent({Event::Kind::Connected, state.client, {}});
+      break;
+    }
+    case ix::WebSocketMessageType::Message:
+      if (!msg->binary) pushEvent({Event::Kind::Message, state.client, msg->str});
+      break;
+    case ix::WebSocketMessageType::Close: {
+      {
+        std::lock_guard lock(connectionsMutex_);
+        connections_.erase(state.client);
+      }
+      pushEvent({Event::Kind::Disconnected, state.client, {}});
+      break;
+    }
+    default:
+      break;
+  }
+}
 
 bool WebSocketTransport::start(std::string* error) {
   const auto [ok, reason] = server_->listen();
@@ -118,13 +121,20 @@ void WebSocketTransport::senderLoop() {
       message = std::move(outbox_.front());
       outbox_.pop_front();
     }
-    std::lock_guard lock(connectionsMutex_);
-    const auto it = connections_.find(message.client);
-    if (it == connections_.end()) continue;
+    // IXWebSocket holds its own lock while it calls onMessage(), which takes
+    // connectionsMutex_, so never call into it with connectionsMutex_ held: a client leaving
+    // during a send would deadlock, and stop() would then wait forever.
+    std::shared_ptr<ix::WebSocket> socket;
+    {
+      std::lock_guard lock(connectionsMutex_);
+      const auto it = connections_.find(message.client);
+      if (it != connections_.end()) socket = it->second.lock();
+    }
+    if (!socket) continue;
     if (message.close) {
-      it->second->close();
+      socket->close();
     } else {
-      it->second->sendText(message.text);
+      socket->sendText(message.text);
     }
   }
 }
