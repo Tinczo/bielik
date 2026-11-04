@@ -29,13 +29,14 @@ Future<void> pumpUntil(
   bool Function() condition, {
   String description = 'condition',
   Duration timeout = const Duration(seconds: 5),
+  Duration advance = Duration.zero,
 }) async {
   final deadline = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(deadline)) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
-    await tester.pump();
+    await tester.pump(advance);
     if (condition()) return;
   }
   fail('timed out waiting for $description');

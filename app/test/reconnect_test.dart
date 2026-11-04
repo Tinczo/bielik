@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bielik/app.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,9 +23,11 @@ ProtocolExample subscribeWithGitaraAtMinus12() {
   return ProtocolExample(example.name, json);
 }
 
-Slider gitaraSlider(WidgetTester tester) => tester.widget<Slider>(
-  find.byKey(const Key('level-{1B6A2C10-0002-4A3E-9C1D-000000000002}')),
-);
+const gitaraId = '{1B6A2C10-0002-4A3E-9C1D-000000000002}';
+const wokalId = '{1B6A2C10-0001-4A3E-9C1D-000000000001}';
+
+Slider gitaraSlider(WidgetTester tester) =>
+    tester.widget<Slider>(find.byKey(const Key('level-$gitaraId')));
 
 void main() {
   Future<FakeMixerServer> startServer(WidgetTester tester, {int port = 0}) =>
@@ -112,6 +115,75 @@ void main() {
         advance: const Duration(milliseconds: 200),
       );
       expect(find.text(disconnectedText), findsNothing);
+      expect(server.problems, isEmpty);
+      await settle(tester);
+    },
+  );
+
+  testWidgets(
+    'undo and redo wait for the connection, and the history survives the drop',
+    (tester) async {
+      final server = await startServer(tester);
+      addTearDown(() => tester.runAsync(server.close));
+      await tester.pumpWidget(
+        BielikApp(passwordStore: InMemoryPasswordStore()),
+      );
+      await openWokal(tester, server);
+
+      final undo = find.byKey(const Key('undo'));
+      final redo = find.byKey(const Key('redo'));
+      bool enabled(Finder button) =>
+          tester.widget<IconButton>(button).onPressed != null;
+      Iterable<Object?> levelsSent() => server.extraMessages
+          .where((message) => message['type'] == 'set_level')
+          .map((message) => message['level']);
+      Future<void> silence(String sourceId) async {
+        final slider = find.byKey(Key('level-$sourceId'));
+        await tester.drag(slider, Offset(-tester.getSize(slider).width, 0));
+        await tester.pump(kDoubleTapTimeout);
+      }
+
+      await silence(gitaraId);
+      await silence(wokalId);
+      await pumpUntil(
+        tester,
+        () => levelsSent().where((level) => level == 0).length >= 2,
+        description: 'both levels reached the server',
+      );
+      await tester.tap(undo);
+      await tester.pump();
+      expect(enabled(undo), isTrue);
+      expect(enabled(redo), isTrue);
+
+      await tester.runAsync(server.dropConnections);
+      await pumpUntilFound(tester, find.text(disconnectedText));
+      expect(enabled(undo), isFalse);
+      expect(enabled(redo), isFalse);
+
+      await pumpUntil(
+        tester,
+        () => find.text(disconnectedText).evaluate().isEmpty,
+        advance: const Duration(milliseconds: 100),
+        description: 'reconnected',
+      );
+      expect(enabled(undo), isTrue);
+      expect(enabled(redo), isTrue);
+
+      await pumpUntil(
+        tester,
+        () =>
+            server.connections == 2 &&
+            find.text('−6.0 dB').evaluate().isNotEmpty,
+        description: 'monitor back from the server',
+      );
+      final sentBefore = levelsSent().length;
+      await tester.tap(undo);
+      await pumpUntil(
+        tester,
+        () => levelsSent().length > sentBefore,
+        description: 'undo reached the server',
+      );
+      expect(levelsSent().last, 0.5);
       expect(server.problems, isEmpty);
       await settle(tester);
     },

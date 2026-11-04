@@ -38,6 +38,10 @@ class _MonitorScreenState extends State<MonitorScreen> {
       ) ??
       false;
 
+  /// Undo and redo send levels, so they wait for the connection.
+  bool get _connected =>
+      widget.client.connection.value == ConnectionStatus.connected;
+
   void _undo() {
     final step = _history.undo(_exists);
     if (step != null) widget.client.setLevel(step.sourceId, step.before);
@@ -85,7 +89,11 @@ class _MonitorScreenState extends State<MonitorScreen> {
         title: Text(_name),
         actions: [
           ListenableBuilder(
-            listenable: Listenable.merge([_history, widget.client.monitor]),
+            listenable: Listenable.merge([
+              _history,
+              widget.client.monitor,
+              widget.client.connection,
+            ]),
             builder: (context, _) => Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -93,13 +101,17 @@ class _MonitorScreenState extends State<MonitorScreen> {
                   key: const Key('undo'),
                   tooltip: 'Cofnij',
                   icon: const Icon(Icons.undo),
-                  onPressed: _history.canUndo(_exists) ? _undo : null,
+                  onPressed: _connected && _history.canUndo(_exists)
+                      ? _undo
+                      : null,
                 ),
                 IconButton(
                   key: const Key('redo'),
                   tooltip: 'Ponów',
                   icon: const Icon(Icons.redo),
-                  onPressed: _history.canRedo(_exists) ? _redo : null,
+                  onPressed: _connected && _history.canRedo(_exists)
+                      ? _redo
+                      : null,
                 ),
               ],
             ),
