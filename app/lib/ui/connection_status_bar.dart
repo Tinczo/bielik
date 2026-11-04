@@ -26,7 +26,7 @@ class ConnectionStatusBar extends StatelessWidget {
         ValueListenableBuilder<ConnectionStatus>(
           valueListenable: client.connection,
           builder: (context, status, _) {
-            if (status == ConnectionStatus.connected) {
+            if (status != ConnectionStatus.reconnecting) {
               return const SizedBox.shrink();
             }
             return Material(

@@ -10,6 +10,9 @@ class LastSession {
 
   /// GUID of the monitor last opened on this server; null if none.
   final String? monitorId;
+
+  /// Whether this session is about the laptop at [host]:[port].
+  bool isFor(String host, int port) => this.host == host && this.port == port;
 }
 
 /// Where Bielik keeps the last session between launches.
@@ -60,4 +63,24 @@ Future<void> rememberSession(SessionStore store, LastSession session) async {
   } catch (_) {
     // Not remembered this time.
   }
+}
+
+/// Remembers the laptop just connected to, before any monitor is opened. The
+/// monitor remembered for that same laptop stays; one remembered for another
+/// laptop means nothing here and is dropped.
+Future<void> rememberLaptop(SessionStore store, String host, int port) async {
+  LastSession? last;
+  try {
+    last = await store.read();
+  } catch (_) {
+    // Nothing remembered we can use.
+  }
+  await rememberSession(
+    store,
+    LastSession(
+      host: host,
+      port: port,
+      monitorId: last != null && last.isFor(host, port) ? last.monitorId : null,
+    ),
+  );
 }

@@ -43,6 +43,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
   bool _connecting = false;
   String? _error;
 
+  /// What was remembered at start, until a connection succeeds: the monitor
+  /// is reopened once, also when the first attempt failed and the musician
+  /// connects to that laptop by hand.
+  LastSession? _restored;
+
   @override
   void initState() {
     super.initState();
@@ -59,13 +64,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
       return; // nothing remembered we can use; the musician connects by hand
     }
     if (!mounted || session == null || _connecting) return;
+    _restored = session;
     _host.text = session.host;
     _port.text = '${session.port}';
-    await _connectTo(
-      session.host,
-      session.port,
-      reopenMonitorId: session.monitorId,
-    );
+    await _connectTo(session.host, session.port);
   }
 
   Future<void> _loadPassword() async {
@@ -98,11 +100,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
     await _connectTo(host, port);
   }
 
-  Future<void> _connectTo(
-    String host,
-    int port, {
-    String? reopenMonitorId,
-  }) async {
+  String _describe(ConnectionFailure failure, String host, int port) =>
+      switch (failure) {
+        ConnectionFailure.badPassword =>
+          'Złe hasło. Zapytaj zespół o aktualne hasło.',
+        ConnectionFailure.unsupportedVersion =>
+          'Rozszerzenie w REAPERze ma inną wersję niż Bielik. '
+              'Zaktualizuj Rozszerzenie albo Bielika.',
+        ConnectionFailure.network => 'Nie udało się połączyć z $host:$port.',
+      };
+
+  Future<void> _connectTo(String host, int port) async {
     setState(() {
       _connecting = true;
       _error = null;
@@ -120,14 +128,19 @@ class _ConnectScreenState extends State<ConnectScreen> {
       } on Exception {
         // Not remembered this time; the connection itself is fine.
       }
-      await rememberSession(
-        widget.sessionStore,
-        LastSession(host: host, port: port),
-      );
+      await rememberLaptop(widget.sessionStore, host, port);
       if (!mounted) {
         await client.close();
         return;
       }
+      final restored = _restored;
+      _restored = null;
+      // Refused while reconnecting: only this screen can fix that.
+      client.connection.addListener(() {
+        if (client.connection.value == ConnectionStatus.refused && mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      });
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ConnectionStatusBar(
@@ -136,25 +149,21 @@ class _ConnectScreenState extends State<ConnectScreen> {
               client: client,
               sessionStore: widget.sessionStore,
               screenWakeLock: widget.screenWakeLock,
-              reopenMonitorId: reopenMonitorId,
+              reopenMonitorId: restored != null && restored.isFor(host, port)
+                  ? restored.monitorId
+                  : null,
             ),
           ),
         ),
       );
+      final refusal = client.refusal;
       await client.close();
+      if (refusal != null && mounted) {
+        setState(() => _error = _describe(refusal, host, port));
+      }
     } on MixerConnectionException catch (error) {
       if (mounted) {
-        setState(
-          () => _error = switch (error.failure) {
-            ConnectionFailure.badPassword =>
-              'Złe hasło. Zapytaj zespół o aktualne hasło.',
-            ConnectionFailure.unsupportedVersion =>
-              'Rozszerzenie w REAPERze ma inną wersję niż Bielik. '
-                  'Zaktualizuj Rozszerzenie albo Bielika.',
-            ConnectionFailure.network =>
-              'Nie udało się połączyć z $host:$port.',
-          },
-        );
+        setState(() => _error = _describe(error.failure, host, port));
       }
     } finally {
       if (mounted) setState(() => _connecting = false);

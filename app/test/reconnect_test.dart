@@ -189,6 +189,141 @@ void main() {
     },
   );
 
+  Future<void> expectNoMoreAttempts(
+    WidgetTester tester,
+    FakeMixerServer server,
+  ) async {
+    final attempts = server.connections;
+    for (var i = 0; i < 12; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(server.connections, attempts);
+  }
+
+  testWidgets(
+    'when the band password changed during the drop Bielik stops trying and '
+    'says so on the connect screen',
+    (tester) async {
+      final server = await startServer(tester);
+      addTearDown(() => tester.runAsync(server.close));
+      await tester.pumpWidget(
+        BielikApp(passwordStore: InMemoryPasswordStore()),
+      );
+      await tester.enterText(find.byKey(const Key('password')), 'zgaduję');
+      await openWokal(tester, server);
+
+      server.example = loadProtocolExample('bad-password.json');
+      await tester.runAsync(server.dropConnections);
+
+      await pumpUntilFound(
+        tester,
+        find.text('Złe hasło. Zapytaj zespół o aktualne hasło.'),
+        advance: const Duration(milliseconds: 100),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('password')), findsOneWidget);
+      expect(find.text('Odsłuchy'), findsNothing);
+      expect(find.text(disconnectedText), findsNothing);
+      expect(server.problems, isEmpty);
+      await expectNoMoreAttempts(tester, server);
+    },
+  );
+
+  testWidgets(
+    'when REAPER comes back with another protocol version Bielik stops trying '
+    'and says so on the connect screen',
+    (tester) async {
+      final server = await startServer(tester);
+      addTearDown(() => tester.runAsync(server.close));
+      await tester.pumpWidget(
+        BielikApp(passwordStore: InMemoryPasswordStore()),
+      );
+      await openWokal(tester, server);
+
+      server.example = loadProtocolExample('unsupported-version.json');
+      await tester.runAsync(server.dropConnections);
+
+      await pumpUntilFound(
+        tester,
+        find.text(
+          'Rozszerzenie w REAPERze ma inną wersję niż Bielik. '
+          'Zaktualizuj Rozszerzenie albo Bielika.',
+        ),
+        advance: const Duration(milliseconds: 100),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('password')), findsOneWidget);
+      await expectNoMoreAttempts(tester, server);
+    },
+  );
+
+  testWidgets(
+    'a drag cut short by a drop is one undo step, from the level before it '
+    'to the last level sent',
+    (tester) async {
+      final server = await startServer(tester);
+      addTearDown(() => tester.runAsync(server.close));
+      await tester.pumpWidget(
+        BielikApp(passwordStore: InMemoryPasswordStore()),
+      );
+      await openWokal(tester, server);
+      final undo = find.byKey(const Key('undo'));
+      final redo = find.byKey(const Key('redo'));
+      List<Object?> levelsSent() => [
+        for (final message in server.extraMessages)
+          if (message['type'] == 'set_level') message['level'],
+      ];
+
+      final slider = find.byKey(const Key('level-$gitaraId'));
+      final finger = await tester.startGesture(tester.getCenter(slider));
+      await finger.moveBy(const Offset(-60, 0));
+      await tester.pump();
+      await finger.moveBy(const Offset(-60, 0));
+      await tester.pump(const Duration(milliseconds: 100));
+      await pumpUntil(
+        tester,
+        () => levelsSent().isNotEmpty,
+        description: 'a live level reached the server',
+      );
+      final lastSent = levelsSent().last;
+
+      await tester.runAsync(server.dropConnections);
+      await pumpUntilFound(tester, find.text(disconnectedText));
+      await finger.up();
+      await pumpUntil(
+        tester,
+        () =>
+            find.text(disconnectedText).evaluate().isEmpty &&
+            find.text('−6.0 dB').evaluate().isNotEmpty,
+        advance: const Duration(milliseconds: 100),
+        description: 'reconnected',
+      );
+
+      final sentBefore = levelsSent().length;
+      await tester.tap(undo);
+      await pumpUntil(
+        tester,
+        () => levelsSent().length > sentBefore,
+        description: 'undo reached the server',
+      );
+      expect(levelsSent().last, 0.5);
+      expect(tester.widget<IconButton>(undo).onPressed, isNull);
+
+      await tester.tap(redo);
+      await pumpUntil(
+        tester,
+        () => levelsSent().length > sentBefore + 1,
+        description: 'redo reached the server',
+      );
+      expect(levelsSent().last, lastSent);
+      expect(server.problems, isEmpty);
+      await settle(tester);
+    },
+  );
+
   testWidgets(
     'when the monitor is gone after reconnecting Bielik goes back to the list',
     (tester) async {

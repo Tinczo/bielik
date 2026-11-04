@@ -143,6 +143,7 @@ Rozszerzenie wykrywa zmiany przez ukrytą powierzchnię kontrolną (`CSURF_EXT_S
 
 - Serwer nie pamięta klientów między połączeniami: każde nowe połączenie zaczyna się od `hello`, a subskrypcja kończy się razem z połączeniem.
 - Bielik po utracie połączenia łączy się ponownie sam, z narastającym odstępem (0,5 s, potem dwa razy dłużej, najwyżej 5 s). Po `welcome` czeka na `monitors`: jeśli oglądany odsłuch nadal jest na liście, wysyła dla niego `subscribe`; jeśli nie (np. REAPER wrócił z innym projektem), wraca do listy odsłuchów. W czasie rozłączenia pokazuje ostatni znany stan z zablokowanymi suwakami.
+- Odmowa przy ponownym łączeniu (`bad_password`, `unsupported_version`) kończy próby, bo powtarzanie nic nie zmieni: Bielik wraca do ekranu połączenia z tym samym komunikatem co przy pierwszym łączeniu. Zwykłe błędy sieci nie kończą prób.
 - Bielik wysyła ping WebSocket co 3 s; brak pong w tym czasie traktuje jak zerwane połączenie (zniknięte Wi-Fi nie zawsze zamyka TCP).
 - Przy rozładowaniu Rozszerzenia (zamknięcie REAPERa) serwer zamyka wszystkie połączenia, zatrzymuje wątki sieciowe i zwalnia port, więc REAPER uruchomiony ponownie od razu nasłuchuje na tym samym porcie.
 

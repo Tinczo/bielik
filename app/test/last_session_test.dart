@@ -75,6 +75,89 @@ void main() {
     },
   );
 
+  testWidgets('when the start-up connection failed, connecting by hand to the '
+      'same laptop still opens the remembered monitor', (tester) async {
+    final gone = await startServer(tester);
+    final port = gone.port;
+    await tester.runAsync(gone.close);
+    await tester.pumpWidget(
+      BielikApp(
+        passwordStore: InMemoryPasswordStore(),
+        sessionStore: InMemorySessionStore(
+          LastSession(host: '127.0.0.1', port: port, monitorId: wokalMonitorId),
+        ),
+      ),
+    );
+    await pumpUntilFound(
+      tester,
+      find.text('Nie udało się połączyć z 127.0.0.1:$port.'),
+    );
+
+    final server = (await tester.runAsync(
+      () => FakeMixerServer.start(
+        loadProtocolExample('subscribe.json'),
+        port: port,
+      ),
+    ))!;
+    addTearDown(() => tester.runAsync(server.close));
+    await tester.tap(find.text('Połącz'));
+
+    await pumpUntilFound(tester, find.text('−6.0 dB'));
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('connecting to the same laptop without opening a monitor keeps '
+      'the remembered one', (tester) async {
+    final server = await startServer(tester);
+    final sessions = InMemorySessionStore(
+      LastSession(
+        host: server.host,
+        port: server.port,
+        monitorId: 'a monitor not in this project',
+      ),
+    );
+    await tester.pumpWidget(
+      BielikApp(passwordStore: InMemoryPasswordStore(), sessionStore: sessions),
+    );
+
+    await pumpUntilFound(tester, find.text('Wokal'));
+
+    expect(sessions.session?.monitorId, 'a monitor not in this project');
+  });
+
+  testWidgets(
+    'connecting to another laptop neither opens nor keeps the monitor '
+    'remembered for the previous one',
+    (tester) async {
+      final gone = await startServer(tester);
+      final port = gone.port;
+      await tester.runAsync(gone.close);
+      final sessions = InMemorySessionStore(
+        LastSession(host: '127.0.0.1', port: port, monitorId: wokalMonitorId),
+      );
+      await tester.pumpWidget(
+        BielikApp(
+          passwordStore: InMemoryPasswordStore(),
+          sessionStore: sessions,
+        ),
+      );
+      await pumpUntilFound(
+        tester,
+        find.text('Nie udało się połączyć z 127.0.0.1:$port.'),
+      );
+
+      final other = await startServer(tester);
+      await tester.enterText(find.byKey(const Key('port')), '${other.port}');
+      await tester.tap(find.text('Połącz'));
+
+      await pumpUntilFound(tester, find.text('Wokal'));
+      await tester.pumpAndSettle();
+      expect(find.text('Odsłuchy'), findsOneWidget);
+      expect(sessions.session?.port, other.port);
+      expect(sessions.session?.monitorId, isNull);
+    },
+  );
+
   testWidgets('when the last server is gone Bielik stays on the connect screen '
       'with its address filled in', (tester) async {
     final server = await startServer(tester);

@@ -41,6 +41,10 @@ enum ConnectionStatus {
   /// The connection dropped; the client is trying to get it back. Controls
   /// that change levels should be disabled meanwhile.
   reconnecting,
+
+  /// While reconnecting the server refused the client (see
+  /// [MixerClient.refusal]). Retrying cannot help, so the client has stopped.
+  refused,
 }
 
 /// Client side of the protocol: a connection to the REAPER extension that
@@ -99,6 +103,10 @@ class MixerClient {
     ConnectionStatus.connected,
   );
 
+  /// Why the server refused a reconnect; set once [connection] is
+  /// [ConnectionStatus.refused].
+  ConnectionFailure? refusal;
+
   /// Monitors of the active project; null until the server sends the list.
   /// Kept while reconnecting.
   final ValueNotifier<List<Monitor>?> monitors = ValueNotifier(null);
@@ -141,18 +149,7 @@ class MixerClient {
 
   /// Puts a source's new level into [monitor], whoever changed it.
   void _showLevel(String sourceId, double level) {
-    final current = monitor.value;
-    if (current == null) return;
-    monitor.value = MonitorState(
-      id: current.id,
-      name: current.name,
-      sources: [
-        for (final source in current.sources)
-          source.id == sourceId
-              ? Source(id: source.id, name: source.name, level: level)
-              : source,
-      ],
-    );
+    monitor.value = monitor.value?.withLevel(sourceId, level);
   }
 
   Future<void> close() async {
@@ -309,8 +306,14 @@ class MixerClient {
     _resubscribeOnMonitors = true;
     try {
       await _open();
-    } on MixerConnectionException {
-      if (!_closed) _scheduleRetry();
+    } on MixerConnectionException catch (error) {
+      if (_closed) return;
+      if (error.failure == ConnectionFailure.network) {
+        _scheduleRetry();
+      } else {
+        refusal = error.failure;
+        connection.value = ConnectionStatus.refused;
+      }
       return;
     }
     if (_closed) return;
