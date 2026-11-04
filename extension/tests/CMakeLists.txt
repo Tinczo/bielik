@@ -5,6 +5,7 @@ add_executable(extension_tests
   live_structure_test.cpp
   mixer_service_test.cpp
   set_level_test.cpp
+  level_push_test.cpp
 )
 target_link_libraries(extension_tests PRIVATE transport doctest::doctest)
 target_compile_definitions(extension_tests PRIVATE

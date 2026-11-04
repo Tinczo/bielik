@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../history/level_history.dart';
 import '../protocol/messages.dart';
 import '../protocol/mixer_client.dart';
 import 'source_tile.dart';
 
 /// One monitor: its sources, each with a slider for its level. Follows
 /// structure changes made in REAPER; when the monitor is removed there, goes
-/// back to the list with a message.
+/// back to the list with a message. The musician can undo and redo their own
+/// level changes in this monitor, step by step.
 class MonitorScreen extends StatefulWidget {
   const MonitorScreen({super.key, required this.client, required this.monitor});
 
@@ -24,6 +26,27 @@ class _MonitorScreenState extends State<MonitorScreen> {
 
   /// Monitor name; follows renames made in REAPER.
   late String _name = widget.monitor.name;
+
+  /// The musician's own level changes in this monitor; outlives the screen.
+  LevelHistory get _history =>
+      LevelHistoryScope.of(context).of(widget.monitor.id);
+
+  /// Whether the shown monitor still has [sourceId].
+  bool _exists(String sourceId) =>
+      widget.client.monitor.value?.sources.any(
+        (source) => source.id == sourceId,
+      ) ??
+      false;
+
+  void _undo() {
+    final step = _history.undo(_exists);
+    if (step != null) widget.client.setLevel(step.sourceId, step.before);
+  }
+
+  void _redo() {
+    final step = _history.redo(_exists);
+    if (step != null) widget.client.setLevel(step.sourceId, step.after);
+  }
 
   @override
   void initState() {
@@ -58,7 +81,31 @@ class _MonitorScreenState extends State<MonitorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_name)),
+      appBar: AppBar(
+        title: Text(_name),
+        actions: [
+          ListenableBuilder(
+            listenable: Listenable.merge([_history, widget.client.monitor]),
+            builder: (context, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  key: const Key('undo'),
+                  tooltip: 'Cofnij',
+                  icon: const Icon(Icons.undo),
+                  onPressed: _history.canUndo(_exists) ? _undo : null,
+                ),
+                IconButton(
+                  key: const Key('redo'),
+                  tooltip: 'Ponów',
+                  icon: const Icon(Icons.redo),
+                  onPressed: _history.canRedo(_exists) ? _redo : null,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       body: ValueListenableBuilder<MonitorState?>(
         valueListenable: widget.client.monitor,
         builder: (context, monitor, _) {
@@ -89,6 +136,13 @@ class _MonitorScreenState extends State<MonitorScreen> {
                     enabled: connection == ConnectionStatus.connected,
                     onLevel: (level) =>
                         widget.client.setLevel(source.id, level),
+                    onGesture: (before, after) => _history.record(
+                      LevelStep(
+                        sourceId: source.id,
+                        before: before,
+                        after: after,
+                      ),
+                    ),
                   ),
               ],
             ),

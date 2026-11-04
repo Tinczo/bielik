@@ -70,6 +70,13 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     return;
   }
 
+  if (type == "set_level") {
+    handleSetLevel(client, message);
+    return;
+  }
+  // Anything else sees the levels requested before it.
+  applyPendingLevels();
+
   if (type == "subscribe") {
     if (!message.contains("monitorId") || !message["monitorId"].is_string()) {
       sendError(client, "invalid_message", "subscribe needs a string 'monitorId'");
@@ -85,13 +92,6 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     sendMonitor(client, std::move(*monitor));
     return;
   }
-
-  if (type == "set_level") {
-    handleSetLevel(client, message);
-    return;
-  }
-  // Anything else sees the levels requested before it.
-  applyPendingLevels();
 
   sendError(client, "unknown_type", "unknown message type: " + type);
 }
@@ -134,10 +134,16 @@ void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message)
 }
 
 void MonitorCore::applyPendingLevels() {
-  for (const PendingLevel& pending : pendingLevels_) {
-    project_.setReceiveLevel(pending.monitorId, pending.sourceId, pending.level);
-  }
+  if (pendingLevels_.empty()) return;
+  // Taken out first: projectChanged() may run inside setReceiveLevel (change listener).
+  const std::vector<PendingLevel> pending = std::move(pendingLevels_);
   pendingLevels_.clear();
+  for (const PendingLevel& level : pending) {
+    project_.setReceiveLevel(level.monitorId, level.sourceId, level.level);
+  }
+  // Push the new levels to the subscribers (the sender too) whether or not the project
+  // reports our own writes as a change; what was already sent is not sent again.
+  projectChanged();
 }
 
 void MonitorCore::sendMonitor(ClientId client, MonitorState monitor) {
@@ -170,8 +176,21 @@ void MonitorCore::subscribedMonitorChanged(ClientId client) {
     state.monitor = {};
     return;
   }
-  // Level-only differences are not structure changes.
-  if (!sameStructure(*monitor, state.monitor)) sendMonitor(client, std::move(*monitor));
+  if (!sameStructure(*monitor, state.monitor)) {
+    sendMonitor(client, std::move(*monitor));
+    return;
+  }
+  // Same sources in the same order: send only the levels that moved.
+  for (size_t i = 0; i < monitor->sources.size(); ++i) {
+    Source& sent = state.monitor.sources[i];
+    const double level = monitor->sources[i].level;
+    if (sent.level == level) continue;
+    sendJson(client, {{"type", "level"},
+                      {"monitorId", state.subscribedMonitor},
+                      {"sourceId", sent.id},
+                      {"level", level}});
+    sent.level = level;
+  }
 }
 
 void MonitorCore::sendMonitors(ClientId client, std::vector<Monitor> monitors) {

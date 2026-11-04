@@ -103,6 +103,11 @@ sealed class ServerMessage {
               ],
             ),
           ),
+        'level' => LevelMessage(
+            monitorId: json['monitorId'] as String,
+            sourceId: json['sourceId'] as String,
+            level: (json['level'] as num).toDouble(),
+          ),
         'monitor_removed' => MonitorRemovedMessage(json['id'] as String),
         'error' => ErrorMessage(
             json['code'] as String,
@@ -129,6 +134,21 @@ class MonitorsMessage extends ServerMessage {
 class MonitorMessage extends ServerMessage {
   const MonitorMessage(this.monitor);
   final MonitorState monitor;
+}
+
+/// A source's level changed (in REAPER, from another phone, or the echo of
+/// this phone's own set_level).
+class LevelMessage extends ServerMessage {
+  const LevelMessage({
+    required this.monitorId,
+    required this.sourceId,
+    required this.level,
+  });
+  final String monitorId;
+  final String sourceId;
+
+  /// Linear, 1.0 = 0 dB.
+  final double level;
 }
 
 /// The subscribed monitor no longer exists; the subscription is over.

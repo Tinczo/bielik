@@ -10,14 +10,17 @@ import 'level_format.dart';
 ///
 /// While the musician drags, the new level is sent live but at most once per
 /// [sendInterval]; the final value is always sent on release. A double tap
-/// resets the level to 0 dB. A disabled tile (e.g. while disconnected) only
-/// shows the level.
+/// resets the level to 0 dB. While the slider is held, levels pushed by the
+/// server ([source] changes) are not shown, so the slider does not jump under
+/// the finger; after release it shows [source] again. A disabled tile (e.g.
+/// while disconnected) only shows the level.
 class SourceTile extends StatefulWidget {
   const SourceTile({
     super.key,
     required this.source,
     required this.onLevel,
     this.enabled = true,
+    this.onGesture,
   });
 
   final Source source;
@@ -27,6 +30,10 @@ class SourceTile extends StatefulWidget {
 
   /// Called with each level to send to the server.
   final ValueChanged<double> onLevel;
+
+  /// Called once per finished gesture (a drag or a reset to 0 dB) with the
+  /// level shown before it and the level it ended at.
+  final void Function(double before, double after)? onGesture;
 
   /// About 25 messages per second while dragging.
   static const sendInterval = Duration(milliseconds: 40);
@@ -39,6 +46,9 @@ class _SourceTileState extends State<SourceTile> {
   double? _dragPosition;
   Timer? _throttle;
   double? _unsentLevel;
+
+  /// Level shown when the current drag started.
+  double? _levelBefore;
 
   double get _level => _dragPosition == null
       ? widget.source.level
@@ -77,6 +87,7 @@ class _SourceTileState extends State<SourceTile> {
       _throttle = null;
       _unsentLevel = null;
       _dragPosition = null;
+      _levelBefore = null;
     }
   }
 
@@ -95,12 +106,21 @@ class _SourceTileState extends State<SourceTile> {
       title: Text(source.name),
       trailing: Text(formatLevelDb(_level)),
       subtitle: GestureDetector(
-        onDoubleTap: enabled ? () => _sendFinal(1.0) : null,
+        onDoubleTap: enabled
+            ? () {
+                final before = widget.source.level;
+                _sendFinal(1.0);
+                widget.onGesture?.call(before, 1.0);
+              }
+            : null,
         child: Slider(
           key: Key('level-${source.id}'),
           value: _dragPosition ?? positionFromLevel(source.level),
           onChangeStart: enabled
-              ? (position) => setState(() => _dragPosition = position)
+              ? (position) {
+                  _levelBefore = widget.source.level;
+                  setState(() => _dragPosition = position);
+                }
               : null,
           onChanged: enabled
               ? (position) {
@@ -111,7 +131,11 @@ class _SourceTileState extends State<SourceTile> {
           onChangeEnd: enabled
               ? (position) {
                   setState(() => _dragPosition = null);
-                  _sendFinal(levelFromPosition(position));
+                  final after = levelFromPosition(position);
+                  _sendFinal(after);
+                  final before = _levelBefore ?? widget.source.level;
+                  _levelBefore = null;
+                  widget.onGesture?.call(before, after);
                 }
               : null,
         ),
