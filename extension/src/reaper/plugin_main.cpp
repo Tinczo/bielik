@@ -27,6 +27,7 @@ custom_action_register_t g_settingsAction = {0, "REAPER_MOBILE_MIXER_SETTINGS",
                                              "Mobile mixer: Settings (port, band password)...",
                                              nullptr};
 int g_settingsCommand = 0;
+int g_announcedPort = 0;  // 0 = not announced
 
 void onTimer() {
   if (g_project) g_project->poll();  // change notifications first, then client messages
@@ -35,9 +36,13 @@ void onTimer() {
 
 void log(const std::string& text) { ShowConsoleMsg(("[reaper_mobile_mixer] " + text + "\n").c_str()); }
 
+// Replaces the announcement of another port; the same port needs no new announcement.
 void announce(int port) {
+  if (port == g_announcedPort) return;
   std::string error;
-  if (!g_advertiser->announce(port, &error)) {
+  if (g_advertiser->announce(port, &error)) {
+    g_announcedPort = port;
+  } else {
     log("cannot announce on the network (enter the address in Bielik by hand): " + error);
   }
 }
@@ -53,7 +58,7 @@ void openSettings() {
     ShowMessageBox(text.c_str(), "Mobile mixer settings", 0);
     return;
   }
-  announce(chosen.port);  // replaces the announcement of the old port
+  announce(chosen.port);
 }
 
 bool onAction(KbdSectionInfo*, int command, int, int, int, HWND) {
@@ -70,6 +75,7 @@ void shutdown() {
     if (g_project) g_rec->Register("-csurf_inst", g_project->controlSurface());
   }
   g_advertiser.reset();  // withdraws the mDNS announcement
+  g_announcedPort = 0;
   if (g_service) g_service->stop();
   g_service.reset();
   g_settingsStore.reset();
