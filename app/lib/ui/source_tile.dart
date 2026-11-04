@@ -10,10 +10,10 @@ import 'level_format.dart';
 ///
 /// While the musician drags, the new level is sent live but at most once per
 /// [sendInterval]; the final value is always sent on release. A double tap
-/// resets the level to 0 dB. While the slider is held, levels pushed by the
-/// server ([source] changes) are not shown, so the slider does not jump under
-/// the finger; after release it shows [source] again. A disabled tile (e.g.
-/// while disconnected) only shows the level.
+/// resets the level to 0 dB; a single tap changes nothing. While the slider is
+/// held, levels pushed by the server ([source] changes) are not shown, so the
+/// slider does not jump under the finger; after release it shows [source]
+/// again. A disabled tile (e.g. while disconnected) only shows the level.
 class SourceTile extends StatefulWidget {
   const SourceTile({
     super.key,
@@ -32,7 +32,8 @@ class SourceTile extends StatefulWidget {
   final ValueChanged<double> onLevel;
 
   /// Called once per finished gesture (a drag or a reset to 0 dB) with the
-  /// level shown before it and the level it ended at.
+  /// level shown before it and the level it ended at. For a drag cut short by
+  /// disabling the tile that is the last level sent.
   final void Function(double before, double after)? onGesture;
 
   /// About 25 messages per second while dragging.
@@ -50,16 +51,27 @@ class _SourceTileState extends State<SourceTile> {
   /// Level shown when the current drag started.
   double? _levelBefore;
 
+  /// Last level sent during the current drag; null until the slider moves.
+  double? _lastSent;
+
+  /// Changing it replaces the slider, see [_reset].
+  int _sliderGeneration = 0;
+
   double get _level => _dragPosition == null
       ? widget.source.level
       : levelFromPosition(_dragPosition!);
+
+  void _send(double level) {
+    _lastSent = level;
+    widget.onLevel(level);
+  }
 
   void _sendThrottled(double level) {
     if (_throttle != null) {
       _unsentLevel = level;
       return;
     }
-    widget.onLevel(level);
+    _send(level);
     _throttle = Timer(SourceTile.sendInterval, _sendUnsent);
   }
 
@@ -72,23 +84,64 @@ class _SourceTileState extends State<SourceTile> {
   }
 
   void _sendFinal(double level) {
+    _dropUnsent();
+    if (level != _lastSent) widget.onLevel(level);
+  }
+
+  void _dropUnsent() {
     _throttle?.cancel();
     _throttle = null;
     _unsentLevel = null;
-    widget.onLevel(level);
+  }
+
+  void _forgetDrag() {
+    _dragPosition = null;
+    _levelBefore = null;
+    _lastSent = null;
+  }
+
+  /// The slider starts an interaction when a press outlasts [kPressTimeout],
+  /// and when the double tap then wins it is never told that the interaction
+  /// ended: it would stay active and the next drag would continue from the old
+  /// value. A new slider starts clean.
+  void _reset() {
+    final before = widget.source.level;
+    setState(() {
+      _forgetDrag();
+      _sliderGeneration++;
+    });
+    _sendFinal(1.0);
+    widget.onGesture?.call(before, 1.0);
+  }
+
+  void _onDragEnd(double position) {
+    final before = _levelBefore ?? widget.source.level;
+    final after = levelFromPosition(position);
+    final moved = _lastSent != null; // otherwise it was only a touch
+    if (moved) _sendFinal(after);
+    setState(_forgetDrag);
+    if (moved) widget.onGesture?.call(before, after);
+  }
+
+  /// A drag cut short by a disconnect: nothing more can be sent, but what was
+  /// sent has changed the level, so it stays one gesture to undo. Reported
+  /// after the frame because this runs during build and the history rebuilds
+  /// other widgets.
+  void _interruptDrag() {
+    final before = _levelBefore;
+    final after = _lastSent;
+    _dropUnsent();
+    _forgetDrag();
+    if (before == null || after == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onGesture?.call(before, after);
+    });
   }
 
   @override
   void didUpdateWidget(SourceTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.enabled) {
-      // A drag cut short by a disconnect: nothing more can be sent.
-      _throttle?.cancel();
-      _throttle = null;
-      _unsentLevel = null;
-      _dragPosition = null;
-      _levelBefore = null;
-    }
+    if (!widget.enabled) _interruptDrag();
   }
 
   @override
@@ -106,38 +159,31 @@ class _SourceTileState extends State<SourceTile> {
       title: Text(source.name),
       trailing: Text(formatLevelDb(_level)),
       subtitle: GestureDetector(
-        onDoubleTap: enabled
-            ? () {
-                final before = widget.source.level;
-                _sendFinal(1.0);
-                widget.onGesture?.call(before, 1.0);
-              }
-            : null,
-        child: Slider(
-          key: Key('level-${source.id}'),
-          value: _dragPosition ?? positionFromLevel(source.level),
-          onChangeStart: enabled
-              ? (position) {
-                  _levelBefore = widget.source.level;
-                  setState(() => _dragPosition = position);
-                }
-              : null,
-          onChanged: enabled
-              ? (position) {
-                  setState(() => _dragPosition = position);
-                  _sendThrottled(levelFromPosition(position));
-                }
-              : null,
-          onChangeEnd: enabled
-              ? (position) {
-                  setState(() => _dragPosition = null);
-                  final after = levelFromPosition(position);
-                  _sendFinal(after);
-                  final before = _levelBefore ?? widget.source.level;
-                  _levelBefore = null;
-                  widget.onGesture?.call(before, after);
-                }
-              : null,
+        onDoubleTap: enabled ? _reset : null,
+        child: KeyedSubtree(
+          key: ValueKey(_sliderGeneration),
+          child: Slider(
+            key: Key('level-${source.id}'),
+            // Tapping the track must not jump the level: a press held past
+            // kPressTimeout would reach REAPER before a double tap is known.
+            allowedInteraction: SliderInteraction.slideOnly,
+            value: _dragPosition ?? positionFromLevel(source.level),
+            onChangeStart: enabled
+                ? (position) {
+                    _levelBefore = widget.source.level;
+                    setState(() => _dragPosition = position);
+                  }
+                : null,
+            onChanged: enabled
+                ? (position) {
+                    // A finger still down after a reconnect gets no start.
+                    _levelBefore ??= widget.source.level;
+                    setState(() => _dragPosition = position);
+                    _sendThrottled(levelFromPosition(position));
+                  }
+                : null,
+            onChangeEnd: enabled ? _onDragEnd : null,
+          ),
         ),
       ),
     );

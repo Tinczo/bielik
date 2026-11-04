@@ -118,6 +118,22 @@ Future<void> _reset(
   await _waitForLevel(tester, server, sourceId, 1.0);
 }
 
+/// A tap as a finger makes it: down for longer than [kPressTimeout].
+Future<void> _slowTap(WidgetTester tester, Offset at) async {
+  final finger = await tester.startGesture(at);
+  await tester.pump(const Duration(milliseconds: 150));
+  await finger.up();
+}
+
+/// Slowly double taps the slider of [sourceId], away from its thumb.
+Future<void> _slowDoubleTap(WidgetTester tester, String sourceId) async {
+  final at = tester.getCenter(_sliderOf(sourceId)) - const Offset(150, 0);
+  await _slowTap(tester, at);
+  await tester.pump(const Duration(milliseconds: 100));
+  await _slowTap(tester, at);
+  await tester.pump(kDoubleTapTimeout);
+}
+
 Future<void> _waitForLevel(
   WidgetTester tester,
   FakeMixerServer server,
@@ -199,6 +215,59 @@ void main() {
     expect(_enabled(tester, _redo), isFalse);
     expect(await _press(tester, server, _undo), _setLevel(_vocalId, 1.0));
     expect(server.problems, isEmpty);
+  });
+
+  testWidgets('a double tap made with a real finger is one step and never '
+      'moves the slider to the finger', (tester) async {
+    final server = await _startAndOpen(tester);
+
+    await _slowDoubleTap(tester, _guitarId);
+    await _waitForLevel(tester, server, _guitarId, 1.0);
+
+    expect(_levelIn('Gitara', '0.0 dB'), findsOneWidget);
+    expect(_setLevels(server), [_setLevel(_guitarId, 1.0)]);
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
+    expect(_enabled(tester, _undo), isFalse);
+    expect(_levelIn('Gitara', '−6.0 dB'), findsOneWidget);
+    expect(server.problems, isEmpty);
+  });
+
+  testWidgets('a drag right after such a double tap starts from 0 dB', (
+    tester,
+  ) async {
+    final server = await _startAndOpen(tester);
+    await _slowDoubleTap(tester, _guitarId);
+    await _waitForLevel(tester, server, _guitarId, 1.0);
+
+    await tester.drag(_sliderOf(_guitarId), const Offset(-40, 0));
+    await tester.pump(kDoubleTapTimeout);
+    await pumpUntil(
+      tester,
+      () => _setLevels(server).length >= 2,
+      description: 'the drag reached the server',
+    );
+
+    final level = _setLevels(server).last['level'] as num;
+    expect(level, inExclusiveRange(0.5, 1.0));
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 1.0));
+    expect(await _press(tester, server, _undo), _setLevel(_guitarId, 0.5));
+    expect(_enabled(tester, _undo), isFalse);
+  });
+
+  testWidgets('a single touch of a slider changes nothing and leaves no step', (
+    tester,
+  ) async {
+    final server = await _startAndOpen(tester);
+    final at = tester.getCenter(_sliderOf(_guitarId)) - const Offset(150, 0);
+
+    await _slowTap(tester, at); // held
+    await tester.pump(kDoubleTapTimeout);
+    await tester.tapAt(at); // brief
+    await tester.pump(kDoubleTapTimeout);
+
+    expect(_levelIn('Gitara', '−6.0 dB'), findsOneWidget);
+    expect(_enabled(tester, _undo), isFalse);
+    expect(_setLevels(server), isEmpty);
   });
 
   testWidgets('levels pushed by the server are not undone; undo restores the '
