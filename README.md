@@ -23,7 +23,7 @@ System ma dwie części:
 
 ## Przygotowanie sesji w REAPERze
 
-1. Utwórz dla każdego muzyka ścieżkę z prefiksem `Odsłuch:` w nazwie, np. `Odsłuch: Basia`.
+1. Utwórz dla każdego muzyka ścieżkę z prefiksem `Odsłuch:` w nazwie, np. `Odsłuch: Basia`. Działa też zapis `Odsluch:`, bo wpisywanie „ł” może wywołać skrót REAPERa.
 2. Do tej ścieżki dodaj receive'y ze ścieżek, które muzyk ma słyszeć, np. gitary i wokalu. To są jej źródła.
 3. Skieruj ścieżkę na wyjście interfejsu, do którego podłączone są słuchawki albo monitor.
 4. Hasło i port ustawisz akcją `Mobile mixer: Settings (port, band password)...`. Domyślny port to `8790`.

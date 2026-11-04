@@ -20,8 +20,11 @@ std::vector<Monitor> monitorsOf(const ReaperProject& project) {
   std::vector<Monitor> monitors;
   for (const Track& track : project.tracks()) {
     const std::string_view name = track.name;
-    if (name.substr(0, kMonitorPrefix.size()) != kMonitorPrefix) continue;
-    monitors.push_back({track.guid, std::string(trim(name.substr(kMonitorPrefix.size())))});
+    for (const std::string_view prefix : kMonitorPrefixes) {
+      if (name.substr(0, prefix.size()) != prefix) continue;
+      monitors.push_back({track.guid, std::string(trim(name.substr(prefix.size())))});
+      break;
+    }
   }
   return monitors;
 }
