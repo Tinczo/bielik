@@ -82,8 +82,10 @@ std::vector<Track> ReaperProjectAdapter::tracks() const {
     MediaTrack* track = GetTrack(kActiveProject, i);
     if (!track) continue;
 
+    // The name REAPER displays: an unnamed track reads "Track N", which never carries the
+    // monitor prefix, while a named track gives exactly what was typed.
     char name[4096] = {};
-    GetSetMediaTrackInfo_String(track, "P_NAME", name, false);
+    GetTrackName(track, name, sizeof(name));
     result.push_back({guidOf(track), name});
   }
   return result;

@@ -10,7 +10,7 @@ namespace rmm {
 
 struct Track {
   std::string guid;  // REAPER track GUID, e.g. "{1B6A2C10-...}"
-  std::string name;  // UTF-8, as typed in REAPER
+  std::string name;  // UTF-8, as REAPER displays it (an unnamed track reads "Track N")
 };
 
 // A receive of a track: audio coming from another track (REAPER send category -1).

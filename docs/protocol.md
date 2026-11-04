@@ -73,7 +73,7 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
 ```
 
 - `id` i `name` jak w liście odsłuchów.
-- Źródła to receive'y ścieżki-odsłuchu w kolejności receive'ów. `id` to GUID ścieżki, z której przychodzi receive, `name` to pełna nazwa tej ścieżki.
+- Źródła to receive'y ścieżki-odsłuchu w kolejności receive'ów. `id` to GUID ścieżki, z której przychodzi receive, `name` to pełna nazwa tej ścieżki taka, jak wyświetla ją REAPER: ścieżka bez nazwy przychodzi jako `Track N`, a `N` zmienia się razem z jej pozycją w projekcie (wtedy serwer wysyła ponownie `monitor`).
 - `level` to głośność receive'a, liniowo jak `D_VOL` w REAPERze: `1.0` = 0 dB, `0` = −∞, może być większe od 1. Konwersję na dB robi Aplikacja.
 - Jeśli ścieżka-odsłuch ma kilka receive'ów z tego samego źródła, pokazywany jest tylko pierwszy z nich.
 - Klient subskrybuje naraz jeden odsłuch; kolejny `subscribe` zastępuje poprzedni.

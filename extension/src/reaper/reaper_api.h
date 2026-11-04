@@ -8,7 +8,7 @@
 #define REAPERAPI_WANT_GetTrack
 #define REAPERAPI_WANT_GetTrackGUID
 #define REAPERAPI_WANT_guidToString
-#define REAPERAPI_WANT_GetSetMediaTrackInfo_String
+#define REAPERAPI_WANT_GetTrackName
 #define REAPERAPI_WANT_GetTrackNumSends
 #define REAPERAPI_WANT_GetSetTrackSendInfo
 #define REAPERAPI_WANT_GetTrackSendInfo_Value
