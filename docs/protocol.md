@@ -46,7 +46,7 @@ Każda inna wiadomość przed `welcome` dostaje `error` z kodem `handshake_requi
 }
 ```
 
-- Odsłuch to ścieżka aktywnego projektu, której nazwa zaczyna się od `Odsłuch:`. `name` to reszta nazwy bez prefiksu, przycięta z białych znaków.
+- Odsłuch to ścieżka aktywnego projektu, której nazwa zaczyna się od `Odsłuch:` albo `Odsluch:`. `name` to reszta nazwy bez prefiksu, przycięta z białych znaków.
 - Kolejność jak w projekcie. Pusta lista, gdy projekt nie ma odsłuchów.
 - Serwer wysyła `monitors` ponownie (zawsze pełną listę), gdy lista się zmieni: odsłuch dodany, usunięty, przemianowany, przestawiony albo przełączono projekt w REAPERze. Bez faktycznej różnicy nic nie wysyła.
 

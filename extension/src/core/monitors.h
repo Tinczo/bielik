@@ -9,8 +9,9 @@
 
 namespace rmm {
 
-// A track becomes a monitor ("Odsłuch") when its name starts with this prefix.
-inline constexpr std::string_view kMonitorPrefix = "Odsłuch:";
+// A track becomes a monitor ("Odsłuch") when its name starts with one of these prefixes.
+// The one without the Polish letter exists because typing "ł" can trigger a REAPER shortcut.
+inline constexpr std::string_view kMonitorPrefixes[] = {"Odsłuch:", "Odsluch:"};
 
 struct Monitor {
   std::string id;    // track GUID
