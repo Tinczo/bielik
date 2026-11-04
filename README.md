@@ -19,6 +19,7 @@ System ma dwie części:
 - Automatyczne wykrywanie laptopa w sieci (mDNS), z ręcznym adresem jako awaryjną drogą.
 - Hasło zespołu, żeby nikt spoza zespołu nie zmieniał odsłuchów.
 - Nowe ścieżki, zmiany nazw i przełączenie projektu widać bez ponownego łączenia.
+- Po utracie Wi-Fi albo restarcie REAPERa Bielik sam łączy się ponownie, a po uruchomieniu wraca do ostatniego serwera i odsłuchu.
 
 ## Przygotowanie sesji w REAPERze
 
