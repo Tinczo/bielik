@@ -6,7 +6,14 @@
 
 Pilot do odsłuchów zespołu. Każdy muzyk ustawia z telefonu, jak głośno słyszy poszczególne źródła w swoim odsłuchu, który REAPER miksuje na laptopie podczas próby. Nikt nie musi przerywać grania ani podchodzić do komputera.
 
-> **Status:** wczesna wersja. Testy automatyczne przechodzą, ale całość nie została jeszcze sprawdzona w prawdziwym REAPERze z telefonem. Gotowych wydań jeszcze nie ma, więc Rozszerzenie i aplikację trzeba zbudować samodzielnie.
+> **Status:** wczesna wersja. Testy automatyczne przechodzą, a Rozszerzenie ładuje się w REAPERze 7.24, ale całość nie została jeszcze sprawdzona na próbie z telefonami.
+
+## Pobieranie
+
+Najnowsza wersja jest w [Releases](https://github.com/Tinczo/bielik/releases/latest):
+
+- `bielik-….apk`: aplikacja na telefony z Androidem 7.0 lub nowszym. Telefon może poprosić o zgodę na instalację spoza Sklepu Play.
+- `reaper_mobile_mixer.dll`: Rozszerzenie dla REAPERa na Windows x64, instalowane tylko na laptopie. Zamknij REAPERa, skopiuj plik do `%APPDATA%\REAPER\UserPlugins` i uruchom go ponownie.
 
 ## Jak to działa
 
