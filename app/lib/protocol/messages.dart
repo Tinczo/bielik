@@ -45,6 +45,18 @@ class MonitorState {
   final String id;
   final String name;
   final List<Source> sources;
+
+  /// This state with [sourceId] at [level].
+  MonitorState withLevel(String sourceId, double level) => MonitorState(
+    id: id,
+    name: name,
+    sources: [
+      for (final source in sources)
+        source.id == sourceId
+            ? Source(id: source.id, name: source.name, level: level)
+            : source,
+    ],
+  );
 }
 
 Map<String, Object?> subscribeMessage(String monitorId) => {
