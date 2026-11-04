@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><g transform="translate(512 512) scale(1.08) translate(-527 -598)">
+  <g stroke="#26211C" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
+    <!-- head and neck -->
+    <path fill="#EFE6D2" d="M 262 952 L 214 846 L 158 872 L 176 762 L 112 766 L 166 672 L 110 646 L 188 584 L 146 536 L 232 500
+      C 262 372 402 226 596 222 C 668 220 730 246 772 300 L 790 470
+      C 734 520 684 566 660 628 C 640 690 650 770 700 846 L 626 816 L 616 930 L 544 842 L 500 968 L 430 852 L 370 972 L 330 858 Z"/>
+    <!-- lower mandible -->
+    <path fill="#E2A012" d="M 694 474 C 756 486 816 496 858 520 C 826 566 756 584 682 556 Z"/>
+    <!-- upper beak with hook -->
+    <path fill="#F7C325" d="M 690 282 C 790 256 906 312 938 416 C 956 484 938 552 892 598
+      C 892 540 860 496 806 484 C 766 476 730 484 684 474 C 712 416 712 340 690 282 Z"/>
+  </g>
+  <!-- feather marks -->
+  <g fill="none" stroke="#C9BA9C" stroke-width="16" stroke-linecap="round">
+    <path d="M 300 560 L 262 626"/>
+    <path d="M 392 610 L 348 690"/>
+    <path d="M 300 730 L 276 790"/>
+    <path d="M 470 700 L 438 784"/>
+    <path d="M 560 660 L 540 750"/>
+    <path d="M 420 450 L 380 510"/>
+  </g>
+  <!-- nostril -->
+  <ellipse cx="772" cy="350" rx="26" ry="13" fill="#26211C" transform="rotate(14 772 350)"/>
+  <!-- eye -->
+  <circle cx="606" cy="392" r="50" fill="#F9E27A" stroke="#26211C" stroke-width="16"/>
+  <circle cx="618" cy="396" r="23" fill="#26211C"/>
+  <circle cx="628" cy="386" r="7" fill="#FFFFFF"/>
+  <!-- brow -->
+  <path fill="#26211C" d="M 500 322 C 570 300 650 318 716 392 C 640 362 580 352 516 366 Z"/>
+</g></svg>
