@@ -1,5 +1,8 @@
 #include "core/monitor_core.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <nlohmann/json.hpp>
 
 #include "core/monitors.h"
@@ -8,7 +11,20 @@ namespace rmm {
 
 using nlohmann::json;
 
-MonitorCore::MonitorCore(const ReaperProject& project, Send send, Close close)
+namespace {
+
+// Same monitor, same sources (ids and names) in the same order; levels may differ.
+bool sameStructure(const MonitorState& a, const MonitorState& b) {
+  if (a.monitor != b.monitor || a.sources.size() != b.sources.size()) return false;
+  for (size_t i = 0; i < a.sources.size(); ++i) {
+    if (a.sources[i].id != b.sources[i].id || a.sources[i].name != b.sources[i].name) return false;
+  }
+  return true;
+}
+
+}  // namespace
+
+MonitorCore::MonitorCore(ReaperProject& project, Send send, Close close)
     : project_(project), send_(std::move(send)), close_(std::move(close)) {}
 
 void MonitorCore::setPassword(std::string password) { password_ = std::move(password); }
@@ -50,7 +66,7 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     }
     state.welcomed = true;
     sendJson(client, {{"type", "welcome"}, {"protocolVersion", kProtocolVersion}});
-    sendMonitors(client);
+    sendMonitors(client, monitorsOf(project_));
     return;
   }
 
@@ -66,14 +82,65 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
       return;
     }
     state.subscribedMonitor = monitorId;
-    sendMonitor(client, *monitor);
+    sendMonitor(client, std::move(*monitor));
     return;
   }
+
+  if (type == "set_level") {
+    handleSetLevel(client, message);
+    return;
+  }
+  // Anything else sees the levels requested before it.
+  applyPendingLevels();
 
   sendError(client, "unknown_type", "unknown message type: " + type);
 }
 
-void MonitorCore::sendMonitor(ClientId client, const MonitorState& monitor) {
+void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message) {
+  const auto isString = [&](const char* field) {
+    return message.contains(field) && message[field].is_string();
+  };
+  if (!isString("monitorId") || !isString("sourceId") || !message.contains("level") ||
+      !message["level"].is_number()) {
+    sendError(client, "invalid_message",
+              "set_level needs string 'monitorId' and 'sourceId' and a number 'level'");
+    return;
+  }
+  const std::string monitorId = message["monitorId"];
+  const std::string sourceId = message["sourceId"];
+  const double level = message["level"];
+  if (!std::isfinite(level) || level < 0) {
+    sendError(client, "invalid_message", "set_level 'level' must be a finite number >= 0");
+    return;
+  }
+  const auto monitor = monitorState(project_, monitorId);
+  if (!monitor) {
+    sendError(client, "not_found", "no monitor with id " + monitorId);
+    return;
+  }
+  const bool hasSource = std::any_of(monitor->sources.begin(), monitor->sources.end(),
+                                     [&](const Source& source) { return source.id == sourceId; });
+  if (!hasSource) {
+    sendError(client, "not_found", "monitor " + monitorId + " has no source " + sourceId);
+    return;
+  }
+  for (PendingLevel& pending : pendingLevels_) {
+    if (pending.monitorId == monitorId && pending.sourceId == sourceId) {
+      pending.level = level;
+      return;
+    }
+  }
+  pendingLevels_.push_back({monitorId, sourceId, level});
+}
+
+void MonitorCore::applyPendingLevels() {
+  for (const PendingLevel& pending : pendingLevels_) {
+    project_.setReceiveLevel(pending.monitorId, pending.sourceId, pending.level);
+  }
+  pendingLevels_.clear();
+}
+
+void MonitorCore::sendMonitor(ClientId client, MonitorState monitor) {
   json sources = json::array();
   for (const Source& source : monitor.sources) {
     sources.push_back({{"id", source.id}, {"name", source.name}, {"level", source.level}});
@@ -82,14 +149,38 @@ void MonitorCore::sendMonitor(ClientId client, const MonitorState& monitor) {
                     {"id", monitor.monitor.id},
                     {"name", monitor.monitor.name},
                     {"sources", sources}});
+  clients_[client].monitor = std::move(monitor);
 }
 
-void MonitorCore::sendMonitors(ClientId client) {
-  json monitors = json::array();
-  for (const Monitor& monitor : monitorsOf(project_)) {
-    monitors.push_back({{"id", monitor.id}, {"name", monitor.name}});
+void MonitorCore::projectChanged() {
+  const std::vector<Monitor> monitors = monitorsOf(project_);
+  for (auto& [id, client] : clients_) {
+    if (!client.welcomed) continue;
+    if (client.monitors != monitors) sendMonitors(id, monitors);
+    if (!client.subscribedMonitor.empty()) subscribedMonitorChanged(id);
   }
-  sendJson(client, {{"type", "monitors"}, {"monitors", monitors}});
+}
+
+void MonitorCore::subscribedMonitorChanged(ClientId client) {
+  Client& state = clients_[client];
+  auto monitor = monitorState(project_, state.subscribedMonitor);
+  if (!monitor) {
+    sendJson(client, {{"type", "monitor_removed"}, {"id", state.subscribedMonitor}});
+    state.subscribedMonitor.clear();
+    state.monitor = {};
+    return;
+  }
+  // Level-only differences are not structure changes.
+  if (!sameStructure(*monitor, state.monitor)) sendMonitor(client, std::move(*monitor));
+}
+
+void MonitorCore::sendMonitors(ClientId client, std::vector<Monitor> monitors) {
+  json list = json::array();
+  for (const Monitor& monitor : monitors) {
+    list.push_back({{"id", monitor.id}, {"name", monitor.name}});
+  }
+  sendJson(client, {{"type", "monitors"}, {"monitors", list}});
+  clients_[client].monitors = std::move(monitors);
 }
 
 void MonitorCore::sendError(ClientId client, std::string_view code, std::string_view message) {

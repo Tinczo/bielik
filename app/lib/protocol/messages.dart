@@ -52,6 +52,19 @@ Map<String, Object?> subscribeMessage(String monitorId) => {
       'monitorId': monitorId,
     };
 
+/// Sets the [level] (linear, 1.0 = 0 dB) of one source in one monitor.
+Map<String, Object?> setLevelMessage({
+  required String monitorId,
+  required String sourceId,
+  required double level,
+}) =>
+    {
+      'type': 'set_level',
+      'monitorId': monitorId,
+      'sourceId': sourceId,
+      'level': level,
+    };
+
 Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
       'protocolVersion': protocolVersion,
@@ -90,6 +103,7 @@ sealed class ServerMessage {
               ],
             ),
           ),
+        'monitor_removed' => MonitorRemovedMessage(json['id'] as String),
         'error' => ErrorMessage(
             json['code'] as String,
             json['message'] as String? ?? '',
@@ -115,6 +129,12 @@ class MonitorsMessage extends ServerMessage {
 class MonitorMessage extends ServerMessage {
   const MonitorMessage(this.monitor);
   final MonitorState monitor;
+}
+
+/// The subscribed monitor no longer exists; the subscription is over.
+class MonitorRemovedMessage extends ServerMessage {
+  const MonitorRemovedMessage(this.monitorId);
+  final String monitorId;
 }
 
 class ErrorMessage extends ServerMessage {

@@ -26,6 +26,54 @@ MediaTrack* findTrack(const std::string& guid) {
 
 }  // namespace
 
+// Hidden control surface (not listed in REAPER's preferences): REAPER calls it on the main
+// thread whenever the state a surface would mirror changes.
+class ReaperProjectAdapter::ChangeSurface : public IReaperControlSurface {
+ public:
+  explicit ChangeSurface(ReaperProjectAdapter& adapter) : adapter_(adapter) {}
+
+  const char* GetTypeString() override { return "RMMCHANGES"; }
+  const char* GetDescString() override { return "reaper_mobile_mixer change detection"; }
+  const char* GetConfigString() override { return ""; }
+
+  // Also called when another project tab becomes active.
+  void SetTrackListChange() override { adapter_.markDirty(); }
+  void SetTrackTitle(MediaTrack*, const char*) override { adapter_.markDirty(); }
+
+  int Extended(int call, void*, void*, void*) override {
+    switch (call) {
+      case CSURF_EXT_RESET:
+      case CSURF_EXT_SETRECVVOLUME:
+      case CSURF_EXT_SETSENDVOLUME:  // a send of the source track is a receive of a monitor
+        adapter_.markDirty();
+        break;
+      default:
+        break;
+    }
+    return 0;
+  }
+
+ private:
+  ReaperProjectAdapter& adapter_;
+};
+
+ReaperProjectAdapter::ReaperProjectAdapter() : surface_(std::make_unique<ChangeSurface>(*this)) {}
+
+ReaperProjectAdapter::~ReaperProjectAdapter() = default;
+
+IReaperControlSurface* ReaperProjectAdapter::controlSurface() { return surface_.get(); }
+
+void ReaperProjectAdapter::poll() {
+  ReaProject* project = EnumProjects(-1, nullptr, 0);  // the active project
+  const int stateCount = GetProjectStateChangeCount(project);
+  if (project != lastProject_ || stateCount != lastStateCount_) dirty_ = true;
+  lastProject_ = project;
+  lastStateCount_ = stateCount;
+  if (!dirty_) return;
+  dirty_ = false;
+  notifyChanged();
+}
+
 std::vector<Track> ReaperProjectAdapter::tracks() const {
   std::vector<Track> result;
   const int count = CountTracks(kActiveProject);
@@ -53,6 +101,26 @@ std::vector<Receive> ReaperProjectAdapter::receives(const std::string& trackGuid
     result.push_back({guidOf(source), GetTrackSendInfo_Value(track, kReceives, i, "D_VOL")});
   }
   return result;
+}
+
+bool ReaperProjectAdapter::setReceiveLevel(const std::string& trackGuid,
+                                           const std::string& sourceGuid, double level) {
+  MediaTrack* track = findTrack(trackGuid);
+  if (!track) return false;
+  const int count = GetTrackNumSends(track, kReceives);
+  for (int i = 0; i < count; ++i) {
+    auto* source = static_cast<MediaTrack*>(GetSetTrackSendInfo(track, kReceives, i, "P_SRCTRACK", nullptr));
+    if (!source || guidOf(source) != sourceGuid) continue;
+    // Written like a control-surface fader move, not with SetTrackSendInfo_Value: the
+    // mixer UI follows the change. SetTrackSendUIVol over CSurf_OnRecvVolumeChange because
+    // REAPER's own web remote (csurf_www.cpp) uses it for exactly this, and its `isend`
+    // argument lets us say "tweak in progress" (0) explicitly: the wire has no
+    // end-of-gesture, so we never send "end of edit" (1), which is what adds an undo point.
+    // A negative index addresses receives: -1 is the first one.
+    constexpr int kTweak = 0;
+    return SetTrackSendUIVol(track, -1 - i, level, kTweak);
+  }
+  return false;
 }
 
 }  // namespace rmm

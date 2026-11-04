@@ -107,6 +107,14 @@ class MixerClient {
   /// while reconnecting.
   final ValueNotifier<MonitorState?> monitor = ValueNotifier(null);
 
+  final StreamController<String> _monitorRemoved =
+      StreamController<String>.broadcast();
+
+  /// Ids of subscribed monitors that were removed in REAPER (track deleted,
+  /// renamed without the prefix, another project opened). The subscription
+  /// ends with them.
+  Stream<String> get monitorRemoved => _monitorRemoved.stream;
+
   String? _subscribedMonitorId;
 
   /// Starts showing [monitorId]; replaces any previous subscription.
@@ -116,6 +124,26 @@ class MixerClient {
     _send(subscribeMessage(monitorId));
   }
 
+  /// Sets the level of a source of the subscribed monitor. The new level shows
+  /// in [monitor] at once; the server does not confirm it.
+  void setLevel(String sourceId, double level) {
+    final current = monitor.value;
+    if (current == null) return;
+    _send(
+      setLevelMessage(monitorId: current.id, sourceId: sourceId, level: level),
+    );
+    monitor.value = MonitorState(
+      id: current.id,
+      name: current.name,
+      sources: [
+        for (final source in current.sources)
+          source.id == sourceId
+              ? Source(id: source.id, name: source.name, level: level)
+              : source,
+      ],
+    );
+  }
+
   Future<void> close() async {
     _closed = true;
     _retryTimer?.cancel();
@@ -123,6 +151,7 @@ class MixerClient {
     connection.dispose();
     monitors.dispose();
     monitor.dispose();
+    await _monitorRemoved.close();
   }
 
   /// Opens a socket and completes the handshake on it.
@@ -187,6 +216,11 @@ class MixerClient {
       case MonitorMessage(:final monitor):
         // Ignore a late answer for a monitor the musician has already left.
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
+      case MonitorRemovedMessage(:final monitorId):
+        if (monitorId != _subscribedMonitorId) return;
+        _subscribedMonitorId = null;
+        monitor.value = null;
+        _monitorRemoved.add(monitorId);
       case ErrorMessage(:final code, :final message):
         if (_welcome case final welcome? when !welcome.isCompleted) {
           welcome.completeError(

@@ -27,7 +27,7 @@ class SettingsStore {
 // hello. Main thread only.
 class MixerService {
  public:
-  MixerService(const ReaperProject& project, SettingsStore& store, std::string host = "0.0.0.0");
+  MixerService(ReaperProject& project, SettingsStore& store, std::string host = "0.0.0.0");
 
   // Starts the server with the stored settings. On failure (e.g. port taken) the service
   // stays without a server until applySettings() succeeds.
@@ -44,7 +44,7 @@ class MixerService {
  private:
   std::unique_ptr<MixerServer> startServer(const Settings& settings, std::string* error);
 
-  const ReaperProject& project_;
+  ReaperProject& project_;
   SettingsStore& store_;
   std::string host_;
   Settings settings_;

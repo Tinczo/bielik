@@ -2,7 +2,7 @@
 
 namespace rmm {
 
-MixerService::MixerService(const ReaperProject& project, SettingsStore& store, std::string host)
+MixerService::MixerService(ReaperProject& project, SettingsStore& store, std::string host)
     : project_(project), store_(store), host_(std::move(host)) {}
 
 bool MixerService::start(std::string* error) {

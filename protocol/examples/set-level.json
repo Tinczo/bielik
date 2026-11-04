@@ -1,0 +1,82 @@
+{
+  "description": "set_level changes the volume of one receive: the level of that source in that monitor. The same source in another monitor keeps its level. The server does not answer set_level itself; the new level shows in the next monitor state.",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal" },
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [
+          { "source": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "level": 1.0 },
+          { "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }
+        ]
+      },
+      {
+        "guid": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+        "name": "Odsłuch: Gitara",
+        "receives": [
+          { "source": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "level": 0.5 },
+          { "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }
+        ]
+      }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 1 } },
+    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [
+          { "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" },
+          { "id": "{1B6A2C10-0020-4A3E-9C1D-000000000020}", "name": "Gitara" }
+        ]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [
+          { "id": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal", "level": 1.0 },
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }
+        ]
+      }
+    },
+    {
+      "client": {
+        "type": "set_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "sourceId": "{1B6A2C10-0002-4A3E-9C1D-000000000002}",
+        "level": 1.0
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0020-4A3E-9C1D-000000000020}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+        "name": "Gitara",
+        "sources": [
+          { "id": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal", "level": 0.5 },
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }
+        ]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "sources": [
+          { "id": "{1B6A2C10-0001-4A3E-9C1D-000000000001}", "name": "Wokal", "level": 1.0 },
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 1.0 }
+        ]
+      }
+    }
+  ]
+}
