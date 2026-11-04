@@ -1,4 +1,8 @@
-# Bielik
+<p align="center">
+  <img src="app/assets/logo/bielik.png" alt="Logo Bielika: głowa bielika z wielkim żółtym dziobem" width="240">
+</p>
+
+<h1 align="center">Bielik</h1>
 
 Pilot do odsłuchów zespołu. Każdy muzyk ustawia z telefonu, jak głośno słyszy poszczególne źródła w swoim odsłuchu, który REAPER miksuje na laptopie podczas próby. Nikt nie musi przerywać grania ani podchodzić do komputera.
 
