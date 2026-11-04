@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [ ] Grafika głowy orła (wektorowo) zaakceptowana przez zespół. To zadanie projektowe, dlatego `ready-for-human`.
 - [ ] Adaptacyjna ikona Androida (pierwszy plan i tło) we wszystkich wymaganych rozdzielczościach, wygenerowana z grafiki źródłowej.
