@@ -22,6 +22,10 @@ ProtocolExample subscribeWithGitaraAtMinus12() {
   return ProtocolExample(example.name, json);
 }
 
+Slider gitaraSlider(WidgetTester tester) => tester.widget<Slider>(
+  find.byKey(const Key('level-{1B6A2C10-0002-4A3E-9C1D-000000000002}')),
+);
+
 void main() {
   Future<FakeMixerServer> startServer(WidgetTester tester, {int port = 0}) =>
       tester
@@ -60,12 +64,17 @@ void main() {
       await tester.runAsync(server.dropConnections);
 
       await pumpUntilFound(tester, find.text(disconnectedText));
+      expect(gitaraSlider(tester).onChanged, isNull);
+      // The last known state stays on screen meanwhile.
+      expect(find.text('−6.0 dB'), findsOneWidget);
+
       await pumpUntilFound(
         tester,
         find.text('−12.0 dB'),
         advance: const Duration(milliseconds: 100),
       );
       expect(find.text(disconnectedText), findsNothing);
+      expect(gitaraSlider(tester).onChanged, isNotNull);
       expect(server.connections, 2);
       expect(server.problems, isEmpty);
       await settle(tester);
@@ -103,6 +112,34 @@ void main() {
         advance: const Duration(milliseconds: 200),
       );
       expect(find.text(disconnectedText), findsNothing);
+      expect(server.problems, isEmpty);
+      await settle(tester);
+    },
+  );
+
+  testWidgets(
+    'when the monitor is gone after reconnecting Bielik goes back to the list',
+    (tester) async {
+      final server = await startServer(tester);
+      addTearDown(() => tester.runAsync(server.close));
+      await tester.pumpWidget(
+        BielikApp(passwordStore: InMemoryPasswordStore()),
+      );
+      await openWokal(tester, server);
+
+      // REAPER came back with another project open.
+      server.example = loadProtocolExample('handshake.json');
+      await tester.runAsync(server.dropConnections);
+
+      await pumpUntilFound(
+        tester,
+        find.text('Odsłuch „Wokal” został usunięty.'),
+        advance: const Duration(milliseconds: 100),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Odsłuchy'), findsOneWidget);
+      expect(find.text('Perkusja'), findsOneWidget);
+      expect(server.extraMessages, isEmpty, reason: 'no subscribe sent');
       expect(server.problems, isEmpty);
       await settle(tester);
     },

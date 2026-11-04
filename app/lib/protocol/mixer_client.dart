@@ -117,6 +117,10 @@ class MixerClient {
 
   String? _subscribedMonitorId;
 
+  /// Set while reconnecting: the next monitor list decides whether to
+  /// subscribe again.
+  bool _resubscribeOnMonitors = false;
+
   /// Starts showing [monitorId]; replaces any previous subscription.
   void subscribe(String monitorId) {
     _subscribedMonitorId = monitorId;
@@ -213,14 +217,15 @@ class MixerClient {
         }
       case MonitorsMessage(:final monitors):
         this.monitors.value = monitors;
+        if (_resubscribeOnMonitors) {
+          _resubscribeOnMonitors = false;
+          _resubscribe(monitors);
+        }
       case MonitorMessage(:final monitor):
         // Ignore a late answer for a monitor the musician has already left.
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
       case MonitorRemovedMessage(:final monitorId):
-        if (monitorId != _subscribedMonitorId) return;
-        _subscribedMonitorId = null;
-        monitor.value = null;
-        _monitorRemoved.add(monitorId);
+        if (monitorId == _subscribedMonitorId) _endSubscription();
       case ErrorMessage(:final code, :final message):
         if (_welcome case final welcome? when !welcome.isCompleted) {
           welcome.completeError(
@@ -238,6 +243,27 @@ class MixerClient {
         }
       case UnknownMessage():
         break;
+    }
+  }
+
+  void _endSubscription() {
+    final monitorId = _subscribedMonitorId!;
+    _subscribedMonitorId = null;
+    monitor.value = null;
+    _monitorRemoved.add(monitorId);
+  }
+
+  /// After reconnecting: subscribes to the same monitor again, or ends the
+  /// subscription if the monitor is gone (e.g. REAPER came back with another
+  /// project).
+  void _resubscribe(List<Monitor> monitors) {
+    final monitorId = _subscribedMonitorId;
+    if (monitorId == null) return;
+    if (monitors.any((monitor) => monitor.id == monitorId)) {
+      // Keep showing the old state until the fresh one arrives.
+      _send(subscribeMessage(monitorId));
+    } else {
+      _endSubscription();
     }
   }
 
@@ -270,6 +296,8 @@ class MixerClient {
 
   Future<void> _retry() async {
     if (_closed) return;
+    // The server sends the monitor list right after welcome.
+    _resubscribeOnMonitors = true;
     try {
       await _open();
     } on MixerConnectionException {
@@ -278,9 +306,5 @@ class MixerClient {
     }
     if (_closed) return;
     connection.value = ConnectionStatus.connected;
-    if (_subscribedMonitorId case final monitorId?) {
-      // Keep showing the old state until the fresh one arrives.
-      _send(subscribeMessage(monitorId));
-    }
   }
 }

@@ -114,6 +114,13 @@ Zapis w REAPERze idzie przez `SetTrackSendUIVol(track, -1 - indeksReceive'a, lev
 
   Subskrypcja się kończy; żeby znów oglądać odsłuch, klient wysyła `subscribe`.
 
+## Zerwane połączenie i zamknięcie
+
+- Serwer nie pamięta klientów między połączeniami: każde nowe połączenie zaczyna się od `hello`, a subskrypcja kończy się razem z połączeniem.
+- Bielik po utracie połączenia łączy się ponownie sam, z narastającym odstępem (0,5 s, potem dwa razy dłużej, najwyżej 5 s). Po `welcome` czeka na `monitors`: jeśli oglądany odsłuch nadal jest na liście, wysyła dla niego `subscribe`; jeśli nie (np. REAPER wrócił z innym projektem), wraca do listy odsłuchów. W czasie rozłączenia pokazuje ostatni znany stan z zablokowanymi suwakami.
+- Bielik wysyła ping WebSocket co 3 s; brak pong w tym czasie traktuje jak zerwane połączenie (zniknięte Wi-Fi nie zawsze zamyka TCP).
+- Przy rozładowaniu Rozszerzenia (zamknięcie REAPERa) serwer zamyka wszystkie połączenia, zatrzymuje wątki sieciowe i zwalnia port, więc REAPER uruchomiony ponownie od razu nasłuchuje na tym samym porcie.
+
 ## Błędy
 
 ```json
