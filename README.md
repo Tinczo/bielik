@@ -70,4 +70,5 @@ Obie strony korzystają ze wspólnych przykładów wiadomości z `protocol/examp
 
 - [Protokół](docs/protocol.md): kontrakt między Rozszerzeniem a aplikacją.
 - [Słownik](GLOSSARY.md): pojęcia używane w projekcie.
+- [Ręczna weryfikacja](docs/reczna-weryfikacja.md): lista sprawdzeń w prawdziwym REAPERze z telefonem.
 - [Decyzje architektoniczne](docs/adr/): dlaczego własne rozszerzenie, a nie wbudowany web remote.
