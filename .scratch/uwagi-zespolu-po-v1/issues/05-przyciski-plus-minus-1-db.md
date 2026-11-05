@@ -13,3 +13,4 @@ Zmiana dotyczy tylko Aplikacji, protokół wystarcza.
 - [ ] Jedno stuknięcie to jeden krok cofania.
 - [ ] Przyciski są zablokowane przy braku połączenia, tak jak suwaki.
 - [ ] Testy Aplikacji przeciw fałszywemu Rozszerzeniu.
+- [ ] Po wdrożeniu mastera (ticket 09) te same przyciski −/+ 1 dB są też przy suwaku Master, nie tylko przy źródłach.
