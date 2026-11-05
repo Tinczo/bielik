@@ -24,6 +24,16 @@ class FakeProject : public ReaperProject {
     double level;
   };
   std::vector<LevelWrite> levelWrites;
+
+  std::map<std::string, std::vector<HardwareSend>> hardwareSendLists;  // by track GUID
+
+  // Every successful setHardwareSendLevel call, in order.
+  struct HardwareSendWrite {
+    std::string trackGuid;
+    int index;
+    double level;
+  };
+  std::vector<HardwareSendWrite> hardwareSendWrites;
   bool notifiesOwnWrites = true;
 
   std::vector<Track> tracks() const override { return trackList; }
@@ -44,6 +54,20 @@ class FakeProject : public ReaperProject {
       }
     }
     return false;
+  }
+
+  std::vector<HardwareSend> hardwareSends(const std::string& trackGuid) const override {
+    const auto found = hardwareSendLists.find(trackGuid);
+    return found == hardwareSendLists.end() ? std::vector<HardwareSend>{} : found->second;
+  }
+
+  bool setHardwareSendLevel(const std::string& trackGuid, int index, double level) override {
+    auto& sends = hardwareSendLists[trackGuid];
+    if (index < 0 || index >= static_cast<int>(sends.size())) return false;
+    sends[index].level = level;
+    hardwareSendWrites.push_back({trackGuid, index, level});
+    if (notifiesOwnWrites) notifyChanged();
+    return true;
   }
 
   void changed() const { notifyChanged(); }

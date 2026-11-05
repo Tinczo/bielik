@@ -31,12 +31,22 @@ class _MonitorScreenState extends State<MonitorScreen> {
   LevelHistory get _history =>
       LevelHistoryScope.of(context).of(widget.monitor.id);
 
-  /// Whether the shown monitor still has [sourceId].
-  bool _exists(String sourceId) =>
-      widget.client.monitor.value?.sources.any(
-        (source) => source.id == sourceId,
-      ) ??
-      false;
+  /// Whether the shown monitor still has [sourceId]; for the Master
+  /// ([LevelStep.outputId]) whether it has exactly one hardware send.
+  bool _exists(String sourceId) {
+    final monitor = widget.client.monitor.value;
+    if (monitor == null) return false;
+    if (sourceId == LevelStep.outputId) return monitor.output.available;
+    return monitor.sources.any((source) => source.id == sourceId);
+  }
+
+  void _setStepLevel(LevelStep step, double level) {
+    if (step.isOutput) {
+      widget.client.setOutputLevel(level);
+    } else {
+      widget.client.setLevel(step.sourceId, level);
+    }
+  }
 
   /// Undo and redo send levels, so they wait for the connection.
   bool get _connected =>
@@ -44,12 +54,12 @@ class _MonitorScreenState extends State<MonitorScreen> {
 
   void _undo() {
     final step = _history.undo(_exists);
-    if (step != null) widget.client.setLevel(step.sourceId, step.before);
+    if (step != null) _setStepLevel(step, step.before);
   }
 
   void _redo() {
     final step = _history.redo(_exists);
-    if (step != null) widget.client.setLevel(step.sourceId, step.after);
+    if (step != null) _setStepLevel(step, step.after);
   }
 
   @override
@@ -80,6 +90,62 @@ class _MonitorScreenState extends State<MonitorScreen> {
       SnackBar(content: Text('Odsłuch „$_name” został usunięty.')),
     );
     Navigator.of(context).pop();
+  }
+
+  /// The Master at the top: a slider for the hardware send, or a red banner
+  /// (with sparks) and a locked slider when the monitor does not have exactly
+  /// one hardware send.
+  Widget _master(MonitorState monitor, bool connected) {
+    final output = monitor.output;
+    final tile = SourceTile(
+      key: const Key('master'),
+      sliderKey: const Key('level-master'),
+      source: Source(id: 'master', name: 'Master', level: output.level ?? 1.0),
+      highlighted: true,
+      levelAvailable: output.available,
+      enabled: connected,
+      onLevel: widget.client.setOutputLevel,
+      onGesture: (before, after) => _history.record(
+        LevelStep.output(before: before, after: after),
+      ),
+    );
+    final problem = switch (output.status) {
+      OutputStatus.ok => null,
+      OutputStatus.missing =>
+        'O KURWA, ZJEBAŁO SIĘ: brakuje wyjścia sprzętowego',
+      OutputStatus.multiple =>
+        'O KURWA, ZJEBAŁEŚ: za dużo wyjść sprzętowych',
+    };
+    if (problem == null) return tile;
+    return Column(
+      children: [
+        Container(
+          key: const Key('output-banner'),
+          color: Colors.red.shade800,
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.electric_bolt,
+                key: Key('output-sparks'),
+                color: Colors.yellowAccent,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  problem,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        tile,
+      ],
+    );
   }
 
   @override
@@ -124,23 +190,21 @@ class _MonitorScreenState extends State<MonitorScreen> {
           if (monitor == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (monitor.sources.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Ten odsłuch nie ma źródeł. Dodaj w REAPERze receive '
-                  'do jego ścieżki.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
           return ValueListenableBuilder<ConnectionStatus>(
             valueListenable: widget.client.connection,
             builder: (context, connection, _) => ListView(
               key: const Key('sources'),
               children: [
+                _master(monitor, connection == ConnectionStatus.connected),
+                if (monitor.sources.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Ten odsłuch nie ma źródeł. Dodaj w REAPERze receive '
+                      'do jego ścieżki.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 for (final source in monitor.sources)
                   SourceTile(
                     key: ValueKey(source.id),

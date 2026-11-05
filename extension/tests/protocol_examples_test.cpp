@@ -47,12 +47,16 @@ bool matches(const json& expected, const json& actual) {
 void load(FakeProject& project, const json& state) {
   project.trackList.clear();
   project.receiveLists.clear();
+  project.hardwareSendLists.clear();
   for (const auto& track : state["tracks"]) {
     const std::string guid = track["guid"];
     project.trackList.push_back({guid, track["name"].get<std::string>()});
     for (const auto& receive : track.value("receives", json::array())) {
       project.receiveLists[guid].push_back(
           {receive["source"].get<std::string>(), receive["level"].get<double>()});
+    }
+    for (const auto& send : track.value("hardwareSends", json::array())) {
+      project.hardwareSendLists[guid].push_back({send["level"].get<double>()});
     }
   }
 }

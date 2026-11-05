@@ -19,7 +19,16 @@ bool sameStructure(const MonitorState& a, const MonitorState& b) {
   for (size_t i = 0; i < a.sources.size(); ++i) {
     if (a.sources[i].id != b.sources[i].id || a.sources[i].name != b.sources[i].name) return false;
   }
-  return true;
+  return a.output.status == b.output.status;
+}
+
+const char* outputStatusName(Output::Status status) {
+  switch (status) {
+    case Output::Status::Ok: return "ok";
+    case Output::Status::Missing: return "missing";
+    case Output::Status::Multiple: return "multiple";
+  }
+  return "missing";
 }
 
 bool hasString(const json& message, const char* field) {
@@ -78,6 +87,10 @@ void MonitorCore::handleMessage(ClientId client, std::string_view text) {
     handleSetLevel(client, message);
     return;
   }
+  if (type == "set_output_level") {
+    handleSetOutputLevel(client, message);
+    return;
+  }
   // Anything else sees the levels requested before it.
   applyPendingLevels();
 
@@ -134,13 +147,53 @@ void MonitorCore::handleSetLevel(ClientId client, const nlohmann::json& message)
   pendingLevels_.push_back({monitorId, sourceId, level});
 }
 
+void MonitorCore::handleSetOutputLevel(ClientId client, const nlohmann::json& message) {
+  if (!hasString(message, "monitorId") || !message.contains("level") ||
+      !message["level"].is_number()) {
+    sendError(client, "invalid_message",
+              "set_output_level needs a string 'monitorId' and a number 'level'");
+    return;
+  }
+  const std::string monitorId = message["monitorId"];
+  const double level = message["level"];
+  if (!std::isfinite(level) || level < 0) {
+    sendError(client, "invalid_message", "set_output_level 'level' must be a finite number >= 0");
+    return;
+  }
+  const auto monitor = monitorState(project_, monitorId);
+  if (!monitor) {
+    sendNoMonitor(client, monitorId);
+    return;
+  }
+  if (monitor->output.status != Output::Status::Ok) {
+    sendError(client, "output_unavailable",
+              "monitor " + monitorId + " does not have exactly one hardware send");
+    return;
+  }
+  for (PendingOutputLevel& pending : pendingOutputLevels_) {
+    if (pending.monitorId == monitorId) {
+      pending.level = level;
+      return;
+    }
+  }
+  pendingOutputLevels_.push_back({monitorId, level});
+}
+
 void MonitorCore::applyPendingLevels() {
-  if (pendingLevels_.empty()) return;
-  // Taken out first: projectChanged() may run inside setReceiveLevel (change listener).
+  if (pendingLevels_.empty() && pendingOutputLevels_.empty()) return;
+  // Taken out first: projectChanged() may run inside a write (change listener).
   const std::vector<PendingLevel> pending = std::move(pendingLevels_);
+  const std::vector<PendingOutputLevel> pendingOutputs = std::move(pendingOutputLevels_);
   pendingLevels_.clear();
+  pendingOutputLevels_.clear();
   for (const PendingLevel& level : pending) {
     project_.setReceiveLevel(level.monitorId, level.sourceId, level.level);
+  }
+  for (const PendingOutputLevel& level : pendingOutputs) {
+    // The routing may have changed since the request: write only to exactly one send.
+    if (outputOf(project_, level.monitorId).status == Output::Status::Ok) {
+      project_.setHardwareSendLevel(level.monitorId, 0, level.level);
+    }
   }
   // Push the new levels to the subscribers (the sender too) whether or not the project
   // reports our own writes as a change; what was already sent is not sent again.
@@ -152,9 +205,12 @@ void MonitorCore::sendMonitor(ClientId client, MonitorState monitor) {
   for (const Source& source : monitor.sources) {
     sources.push_back({{"id", source.id}, {"name", source.name}, {"level", source.level}});
   }
+  json output = {{"status", outputStatusName(monitor.output.status)}};
+  if (monitor.output.status == Output::Status::Ok) output["level"] = monitor.output.level;
   sendJson(client, {{"type", "monitor"},
                     {"id", monitor.monitor.id},
                     {"name", monitor.monitor.name},
+                    {"output", output},
                     {"sources", sources}});
   clients_[client].monitor = std::move(monitor);
 }
@@ -181,7 +237,15 @@ void MonitorCore::subscribedMonitorChanged(ClientId client) {
     sendMonitor(client, std::move(*monitor));
     return;
   }
-  // Same sources in the same order: send only the levels that moved.
+  // Same sources in the same order and the same output status: send only the levels that
+  // moved.
+  if (monitor->output.status == Output::Status::Ok &&
+      monitor->output.level != state.monitor.output.level) {
+    sendJson(client, {{"type", "output_level"},
+                      {"monitorId", state.subscribedMonitor},
+                      {"level", monitor->output.level}});
+    state.monitor.output.level = monitor->output.level;
+  }
   for (size_t i = 0; i < monitor->sources.size(); ++i) {
     Source& sent = state.monitor.sources[i];
     const double level = monitor->sources[i].level;

@@ -8,8 +8,8 @@
     ]
   },
   "steps": [
-    { "client": { "type": "hello", "protocolVersion": 1 } },
-    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    { "client": { "type": "hello", "protocolVersion": 2 } },
+    { "server": { "type": "welcome", "protocolVersion": 2 } },
     {
       "server": {
         "type": "monitors",

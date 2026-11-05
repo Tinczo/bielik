@@ -30,10 +30,22 @@ struct Source {
   double level;      // receive volume, linear: 1.0 = 0 dB, 0 = -inf
 };
 
+// A monitor's master ("Master"): the volume of its hardware send. Properly set up monitors
+// have exactly one hardware send.
+struct Output {
+  enum class Status { Ok, Missing, Multiple };
+  Status status = Status::Missing;
+  double level = 1.0;  // only meaningful when status is Ok; linear: 1.0 = 0 dB, 0 = -inf
+};
+
 struct MonitorState {
   Monitor monitor;
+  Output output;
   std::vector<Source> sources;  // in receive order
 };
+
+// The master of the monitor with this GUID, from its hardware sends.
+Output outputOf(const ReaperProject& project, std::string_view monitorId);
 
 // Monitors of the project, in project order.
 std::vector<Monitor> monitorsOf(const ReaperProject& project);

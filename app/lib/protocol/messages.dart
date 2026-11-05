@@ -1,7 +1,7 @@
 /// Wire messages of the protocol described in docs/protocol.md.
 library;
 
-const int protocolVersion = 1;
+const int protocolVersion = 2;
 
 /// A monitor ("odsłuch"): one musician's personal mix.
 class Monitor {
@@ -34,22 +34,59 @@ class Source {
   final double level;
 }
 
-/// Full state of one monitor: its sources in receive order.
+/// Whether a monitor has exactly one hardware send, which the Master slider
+/// controls.
+enum OutputStatus {
+  /// Exactly one hardware send.
+  ok,
+
+  /// No hardware send.
+  missing,
+
+  /// More than one hardware send.
+  multiple,
+}
+
+/// The monitor's master ("Master"): the volume of its hardware send.
+class Output {
+  const Output(this.status, [this.level]);
+
+  final OutputStatus status;
+
+  /// Linear, 1.0 = 0 dB; only when [status] is [OutputStatus.ok].
+  final double? level;
+
+  /// Whether the Master can be changed.
+  bool get available => status == OutputStatus.ok && level != null;
+}
+
+/// Full state of one monitor: its master and its sources in receive order.
 class MonitorState {
   const MonitorState({
     required this.id,
     required this.name,
+    required this.output,
     required this.sources,
   });
 
   final String id;
   final String name;
+  final Output output;
   final List<Source> sources;
+
+  /// This state with the master at [level].
+  MonitorState withOutputLevel(double level) => MonitorState(
+    id: id,
+    name: name,
+    output: Output(OutputStatus.ok, level),
+    sources: sources,
+  );
 
   /// This state with [sourceId] at [level].
   MonitorState withLevel(String sourceId, double level) => MonitorState(
     id: id,
     name: name,
+    output: output,
     sources: [
       for (final source in sources)
         source.id == sourceId
@@ -76,6 +113,13 @@ Map<String, Object?> setLevelMessage({
       'sourceId': sourceId,
       'level': level,
     };
+
+/// Sets the master [level] (linear, 1.0 = 0 dB) of one monitor.
+Map<String, Object?> setOutputLevelMessage({
+  required String monitorId,
+  required double level,
+}) =>
+    {'type': 'set_output_level', 'monitorId': monitorId, 'level': level};
 
 Map<String, Object?> helloMessage({String password = ''}) => {
       'type': 'hello',
@@ -105,6 +149,7 @@ sealed class ServerMessage {
             MonitorState(
               id: json['id'] as String,
               name: json['name'] as String,
+              output: _decodeOutput(json['output']),
               sources: [
                 for (final source in json['sources'] as List)
                   Source(
@@ -120,6 +165,10 @@ sealed class ServerMessage {
             sourceId: json['sourceId'] as String,
             level: (json['level'] as num).toDouble(),
           ),
+        'output_level' => OutputLevelMessage(
+            monitorId: json['monitorId'] as String,
+            level: (json['level'] as num).toDouble(),
+          ),
         'monitor_removed' => MonitorRemovedMessage(json['id'] as String),
         'error' => ErrorMessage(
             json['code'] as String,
@@ -131,6 +180,16 @@ sealed class ServerMessage {
       return UnknownMessage(json);
     }
   }
+}
+
+Output _decodeOutput(Object? json) {
+  final output = json as Map<String, dynamic>;
+  return switch (output['status']) {
+    'ok' => Output(OutputStatus.ok, (output['level'] as num).toDouble()),
+    'missing' => const Output(OutputStatus.missing),
+    'multiple' => const Output(OutputStatus.multiple),
+    _ => throw TypeError(),
+  };
 }
 
 class WelcomeMessage extends ServerMessage {
@@ -158,6 +217,16 @@ class LevelMessage extends ServerMessage {
   });
   final String monitorId;
   final String sourceId;
+
+  /// Linear, 1.0 = 0 dB.
+  final double level;
+}
+
+/// A monitor's master level changed (in REAPER, from another phone, or the
+/// echo of this phone's own set_output_level).
+class OutputLevelMessage extends ServerMessage {
+  const OutputLevelMessage({required this.monitorId, required this.level});
+  final String monitorId;
 
   /// Linear, 1.0 = 0 dB.
   final double level;

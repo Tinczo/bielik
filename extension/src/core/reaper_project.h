@@ -19,6 +19,12 @@ struct Receive {
   double level = 1.0;      // receive volume (D_VOL), linear: 1.0 = 0 dB, 0 = -inf
 };
 
+// A hardware output send of a track (REAPER send category 1): the track's signal going
+// to an audio interface output.
+struct HardwareSend {
+  double level = 1.0;  // send volume (D_VOL), linear: 1.0 = 0 dB, 0 = -inf
+};
+
 // Port "REAPER project": the only way the monitors core sees the active project.
 // Implemented by the real REAPER API adapter and by an in-memory fake in tests.
 // Called on the main thread only.
@@ -43,6 +49,14 @@ class ReaperProject {
   // the source track, the way a control surface would. Returns false if there is none.
   virtual bool setReceiveLevel(const std::string& trackGuid, const std::string& sourceGuid,
                                double level) = 0;
+
+  // Hardware sends of the track with this GUID, in REAPER's order. Empty if the track has
+  // none or does not exist.
+  virtual std::vector<HardwareSend> hardwareSends(const std::string& trackGuid) const = 0;
+
+  // Sets the volume (linear) of the track's hardware send number `index` (an index into
+  // hardwareSends()), the way a control surface would. Returns false if there is none.
+  virtual bool setHardwareSendLevel(const std::string& trackGuid, int index, double level) = 0;
 
   // Listening does not change the project, hence const. Returns a handle for
   // removeChangeListener().

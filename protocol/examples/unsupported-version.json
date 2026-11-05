@@ -3,7 +3,7 @@
   "settings": { "password": "próba2026" },
   "project": { "tracks": [] },
   "steps": [
-    { "client": { "type": "hello", "protocolVersion": 2, "password": "zgaduję" } },
+    { "client": { "type": "hello", "protocolVersion": 3, "password": "zgaduję" } },
     { "server": { "type": "error", "code": "unsupported_version" } },
     { "closed": true }
   ]

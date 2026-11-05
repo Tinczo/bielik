@@ -1,0 +1,116 @@
+{
+  "description": "A properly set up monitor has exactly one hardware send. With none the output status is 'missing', with two or more 'multiple' (no level in either case). set_output_level then fails with 'output_unavailable' and writes nothing; set_level still works. Fixing the routing in REAPER (here: the missing send gets added) makes the server send the full monitor again, now with status ok. Unknown monitor and bad fields get the usual not_found and invalid_message.",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }]
+      },
+      {
+        "guid": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+        "name": "Odsłuch: Gitara",
+        "hardwareSends": [{ "level": 1.0 }, { "level": 0.5 }]
+      }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 2 } },
+    { "server": { "type": "welcome", "protocolVersion": 2 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [
+          { "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" },
+          { "id": "{1B6A2C10-0020-4A3E-9C1D-000000000020}", "name": "Gitara" }
+        ]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0020-4A3E-9C1D-000000000020}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+        "name": "Gitara",
+        "output": { "status": "multiple" },
+        "sources": []
+      }
+    },
+    {
+      "client": {
+        "type": "set_output_level",
+        "monitorId": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+        "level": 0.5
+      }
+    },
+    { "server": { "type": "error", "code": "output_unavailable" } },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "output": { "status": "missing" },
+        "sources": [
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }
+        ]
+      }
+    },
+    {
+      "client": {
+        "type": "set_output_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "level": 0.5
+      }
+    },
+    { "server": { "type": "error", "code": "output_unavailable" } },
+    {
+      "client": {
+        "type": "set_output_level",
+        "monitorId": "{1B6A2C10-0099-4A3E-9C1D-000000000099}",
+        "level": 0.5
+      }
+    },
+    { "server": { "type": "error", "code": "not_found" } },
+    {
+      "client": {
+        "type": "set_output_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "level": -1
+      }
+    },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    { "client": { "type": "set_output_level", "level": 0.5 } },
+    { "server": { "type": "error", "code": "invalid_message" } },
+    {
+      "project": {
+        "tracks": [
+          { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+          {
+            "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+            "name": "Odsłuch: Wokal",
+            "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }],
+            "hardwareSends": [{ "level": 0.75 }]
+          },
+          {
+            "guid": "{1B6A2C10-0020-4A3E-9C1D-000000000020}",
+            "name": "Odsłuch: Gitara",
+            "hardwareSends": [{ "level": 1.0 }, { "level": 0.5 }]
+          }
+        ]
+      }
+    },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "output": { "status": "ok", "level": 0.75 },
+        "sources": [
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }
+        ]
+      }
+    }
+  ]
+}

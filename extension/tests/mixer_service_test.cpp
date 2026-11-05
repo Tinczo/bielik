@@ -28,7 +28,7 @@ class FakeSettingsStore : public SettingsStore {
 };
 
 json helloWith(const std::string& password) {
-  return {{"type", "hello"}, {"protocolVersion", 1}, {"password", password}};
+  return {{"type", "hello"}, {"protocolVersion", 2}, {"password", password}};
 }
 
 // Sends hello and returns the type of the server's answer ("welcome", "error", or "" if none).

@@ -16,6 +16,20 @@ std::string_view trim(std::string_view text) {
 
 }  // namespace
 
+Output outputOf(const ReaperProject& project, std::string_view monitorId) {
+  const std::vector<HardwareSend> sends = project.hardwareSends(std::string(monitorId));
+  Output output;
+  if (sends.empty()) {
+    output.status = Output::Status::Missing;
+  } else if (sends.size() > 1) {
+    output.status = Output::Status::Multiple;
+  } else {
+    output.status = Output::Status::Ok;
+    output.level = sends.front().level;
+  }
+  return output;
+}
+
 std::vector<Monitor> monitorsOf(const ReaperProject& project) {
   std::vector<Monitor> monitors;
   for (const Track& track : project.tracks()) {
@@ -33,7 +47,7 @@ std::optional<MonitorState> monitorState(const ReaperProject& project, std::stri
   std::optional<MonitorState> state;
   for (Monitor& monitor : monitorsOf(project)) {
     if (monitor.id == monitorId) {
-      state = MonitorState{std::move(monitor), {}};
+      state = MonitorState{std::move(monitor), outputOf(project, monitorId), {}};
       break;
     }
   }

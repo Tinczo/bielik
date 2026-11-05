@@ -25,6 +25,8 @@ class ReaperProjectAdapter : public ReaperProject {
   std::vector<Receive> receives(const std::string& trackGuid) const override;
   bool setReceiveLevel(const std::string& trackGuid, const std::string& sourceGuid,
                        double level) override;
+  std::vector<HardwareSend> hardwareSends(const std::string& trackGuid) const override;
+  bool setHardwareSendLevel(const std::string& trackGuid, int index, double level) override;
 
   // Register with rec->Register("csurf_inst", ...) and unregister ("-csurf_inst") before
   // the adapter is destroyed.

@@ -39,7 +39,7 @@ struct Phone {
   Phone(MixerServer& server, int port, const std::string& monitorId)
       : server(server), client(port) {
     REQUIRE(client.isOpen());
-    client.send(R"({"type":"hello","protocolVersion":1})");
+    client.send(R"({"type":"hello","protocolVersion":2})");
     client.send(json{{"type", "subscribe"}, {"monitorId", monitorId}}.dump());
     for (const char* type : {"welcome", "monitors", "monitor"}) REQUIRE(next()["type"] == type);
   }

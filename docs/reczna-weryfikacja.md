@@ -41,6 +41,14 @@ Rzeczy, których testy automatyczne nie sprawdzą, bo wymagają prawdziwego REAP
 - [ ] Po zmianie z telefonu projekt jest oznaczony jako zmieniony, a przy zamknięciu REAPER pyta o zapis. Sprawdź przy włączonym w preferencjach pytaniu o zapis, bo od niego zależy `MarkProjectDirty`.
 - [ ] Po zapisaniu i ponownym otwarciu projektu poziomy z telefonu są na miejscu.
 
+## Master odsłuchu (hardware send)
+
+- [ ] Suwak Master w telefonie zmienia głośność hardware sendu ścieżki `Odsłuch: …` (kategoria 1), a nie fader ścieżki; mikser REAPERa odświeża się od razu.
+- [ ] Ruch hardware sendu myszką w REAPERze (Routing) dociera na telefon bez ponownego łączenia.
+- [ ] Zmiana Mastera z telefonu nie dodaje punktu undo w REAPERze i oznacza projekt jako zmieniony.
+- [ ] Odsłuch bez hardware sendu pokazuje czerwony baner „brakuje wyjścia sprzętowego”, a z dwoma „za dużo wyjść sprzętowych”; w obu Master jest zablokowany, a źródła działają.
+- [ ] Dodanie albo usunięcie hardware sendu w REAPERze zmienia stan baneru na telefonie bez ponownego łączenia.
+
 ## Połączenie
 
 - [ ] Hasło: złe hasło daje czytelny komunikat, dobre jest zapamiętane na kolejne uruchomienie.
