@@ -39,7 +39,7 @@ struct Session {
   explicit Session(FakeProject& project)
       : port(nextTestPort()), server(project, port, "127.0.0.1"), client((start(), port)) {
     REQUIRE(client.isOpen());
-    client.send(R"({"type":"hello","protocolVersion":1})");
+    client.send(R"({"type":"hello","protocolVersion":2})");
     REQUIRE(next()["type"] == "welcome");
     REQUIRE(next()["type"] == "monitors");
   }
@@ -208,7 +208,7 @@ TEST_CASE("only the client subscribed to a removed monitor gets monitor_removed"
   Session session(project);
   session.subscribe(kDrumsMonitor);
   TestClient vocalist(session.port);
-  vocalist.send(R"({"type":"hello","protocolVersion":1})");
+  vocalist.send(R"({"type":"hello","protocolVersion":2})");
   vocalist.send(json{{"type", "subscribe"}, {"monitorId", kVocalMonitor}}.dump());
   for (const char* type : {"welcome", "monitors", "monitor"}) {
     const auto message = vocalist.nextMessage(session.server);

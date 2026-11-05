@@ -1,0 +1,70 @@
+{
+  "description": "The monitor's master is the volume of its one hardware send. The monitor message reports it as output {status: ok, level}. set_output_level changes it and, like set_level, gets no reply of its own: the new level comes back as output_level to every client subscribed to that monitor, the sender too (echo). A change made in REAPER is pushed the same way. The source levels are untouched.",
+  "project": {
+    "tracks": [
+      { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+      {
+        "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Odsłuch: Wokal",
+        "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }],
+        "hardwareSends": [{ "level": 0.5 }]
+      }
+    ]
+  },
+  "steps": [
+    { "client": { "type": "hello", "protocolVersion": 2 } },
+    { "server": { "type": "welcome", "protocolVersion": 2 } },
+    {
+      "server": {
+        "type": "monitors",
+        "monitors": [{ "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "name": "Wokal" }]
+      }
+    },
+    { "client": { "type": "subscribe", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}" } },
+    {
+      "server": {
+        "type": "monitor",
+        "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "name": "Wokal",
+        "output": { "status": "ok", "level": 0.5 },
+        "sources": [
+          { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 }
+        ]
+      }
+    },
+    {
+      "client": {
+        "type": "set_output_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "level": 0.25
+      }
+    },
+    {
+      "server": {
+        "type": "output_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "level": 0.25
+      }
+    },
+    {
+      "project": {
+        "tracks": [
+          { "guid": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara" },
+          {
+            "guid": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+            "name": "Odsłuch: Wokal",
+            "receives": [{ "source": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "level": 0.5 }],
+            "hardwareSends": [{ "level": 1.0 }]
+          }
+        ]
+      }
+    },
+    {
+      "server": {
+        "type": "output_level",
+        "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+        "level": 1.0
+      }
+    }
+  ]
+}

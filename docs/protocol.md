@@ -1,6 +1,6 @@
 # Protokół Rozszerzenie ↔ Aplikacja
 
-Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja protokołu: **1**.
+Kontrakt między Rozszerzeniem (serwer) a Aplikacją Bielik (klient). Wersja protokołu: **2** (bez zgodności wstecznej z 1: dodano Master odsłuchu, zob. „Master odsłuchu”).
 
 ## Transport
 
@@ -30,7 +30,7 @@ Klient po połączeniu wysyła `hello` z wersją protokołu i hasłem zespołu:
 Serwer odpowiada `welcome` ze swoją wersją protokołu, a zaraz po nim wysyła `monitors`:
 
 ```json
-{ "type": "welcome", "protocolVersion": 1 }
+{ "type": "welcome", "protocolVersion": 2 }
 ```
 
 Każda inna wiadomość przed `welcome` dostaje `error` z kodem `handshake_required`, a połączenie zostaje otwarte.
@@ -65,6 +65,7 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
   "type": "monitor",
   "id": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
   "name": "Wokal",
+  "output": { "status": "ok", "level": 1.0 },
   "sources": [
     { "id": "{1B6A2C10-0002-4A3E-9C1D-000000000002}", "name": "Gitara", "level": 0.5 },
     { "id": "{1B6A2C10-0003-4A3E-9C1D-000000000003}", "name": "Perkusja", "level": 0 }
@@ -73,6 +74,7 @@ Serwer odpowiada pełnym stanem odsłuchu `monitor`:
 ```
 
 - `id` i `name` jak w liście odsłuchów.
+- `output` to Master odsłuchu, zob. „Master odsłuchu”.
 - Źródła to receive'y ścieżki-odsłuchu w kolejności receive'ów. `id` to GUID ścieżki, z której przychodzi receive, `name` to pełna nazwa tej ścieżki taka, jak wyświetla ją REAPER: ścieżka bez nazwy przychodzi jako `Track N`, a `N` zmienia się razem z jej pozycją w projekcie (wtedy serwer wysyła ponownie `monitor`).
 - `level` to głośność receive'a, liniowo jak `D_VOL` w REAPERze: `1.0` = 0 dB, `0` = −∞, może być większe od 1. Konwersję na dB robi Aplikacja.
 - Jeśli ścieżka-odsłuch ma kilka receive'ów z tego samego źródła, pokazywany jest tylko pierwszy z nich.
@@ -106,6 +108,42 @@ Po każdym udanym zapisie Rozszerzenie woła też `MarkProjectDirty(aktywny proj
 
 Do potwierdzenia ręcznie w REAPERze 7.24: brak nowych punktów undo i pytanie o zapis przy zamknięciu projektu po zmianie z telefonu (lista w `docs/reczna-weryfikacja.md`).
 
+## Master odsłuchu
+
+Master to głośność wyjścia sprzętowego odsłuchu: hardware sendu ścieżki-odsłuchu (kategoria 1 w API REAPERa, `D_VOL`), a nie fadera ścieżki. Poprawnie skonfigurowany odsłuch ma dokładnie jeden hardware send. Pole `output` w `monitor` podaje stan:
+
+```json
+{ "status": "ok", "level": 0.5 }
+{ "status": "missing" }
+{ "status": "multiple" }
+```
+
+- `ok`: dokładnie jeden hardware send; `level` to jego głośność, liniowo jak `D_VOL` (`1.0` = 0 dB, `0` = −∞, może być większa od 1). Konwersję na dB robi Aplikacja, tą samą krzywą co dla źródeł.
+- `missing`: odsłuch nie ma hardware sendu. `multiple`: ma ich kilka. W obu przypadkach nie ma `level`, a Master jest niedostępny; źródła działają normalnie.
+
+Klient ustawia Master wiadomością `set_output_level`:
+
+```json
+{
+  "type": "set_output_level",
+  "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}",
+  "level": 0.5
+}
+```
+
+- `level` jak w `set_level`: liczba skończona ≥ 0. Zapis idzie przez `SetTrackSendInfo_Value(track, 1, indeks, "D_VOL", level)`, bo `SetTrackSendUIVol` obsługuje tylko sendy i receive'y, a nie wyjścia sprzętowe; potem `MarkProjectDirty`. Nie tworzy punktu undo. Zapis jest zlewany w jednym takcie timera: wygrywa ostatnia wartość dla danego odsłuchu.
+- Serwer nie odpowiada na udane `set_output_level` osobną odpowiedzią; nowy poziom wraca jako `output_level` do wszystkich klientów subskrybujących ten odsłuch, także do nadawcy (echo).
+- Gdy odsłuch nie ma dokładnie jednego hardware sendu → `error` `output_unavailable` i nic się nie zapisuje. Brak lub zły typ `monitorId` albo `level`, a także `level` ujemny lub nieskończony → `invalid_message`. Nieznany odsłuch → `not_found`.
+- Klient nie musi subskrybować odsłuchu, któremu zmienia Master.
+
+Gdy zmieni się głośność jedynego hardware sendu w subskrybowanym odsłuchu (w REAPERze, z innego telefonu albo przez `set_output_level`), serwer wysyła:
+
+```json
+{ "type": "output_level", "monitorId": "{1B6A2C10-0010-4A3E-9C1D-000000000010}", "level": 0.25 }
+```
+
+Jak `level` dla źródeł: wysyłane są tylko różnice względem tego, co klient już dostał, a Aplikacja ignoruje `output_level` dla suwaka, którego użytkownik właśnie dotyka. Gdy zmieni się sam `status` (hardware send dodany, usunięty), serwer wysyła pełny `monitor`, tak samo jak przy zmianie struktury.
+
 ## Zmiany poziomów na żywo
 
 Gdy zmieni się poziom źródła w subskrybowanym odsłuchu — myszką w REAPERze, z innego telefonu albo z tego samego telefonu przez `set_level` — serwer wysyła `level`:
@@ -129,7 +167,7 @@ Rozszerzenie wykrywa zmiany przez ukrytą powierzchnię kontrolną (`CSURF_EXT_S
 
 ## Zmiany struktury na żywo
 
-- Gdy w subskrybowanym odsłuchu zmieni się lista źródeł (receive dodany lub usunięty, ścieżka-źródło usunięta) albo nazwa odsłuchu lub źródła, serwer wysyła ponownie pełny `monitor`. Sama zmiana poziomów nie powoduje wysłania `monitor`, tylko `level`.
+- Gdy w subskrybowanym odsłuchu zmieni się lista źródeł (receive dodany lub usunięty, ścieżka-źródło usunięta), nazwa odsłuchu lub źródła albo `status` Mastera, serwer wysyła ponownie pełny `monitor`. Sama zmiana poziomów nie powoduje wysłania `monitor`, tylko `level` albo `output_level`.
 - Odsłuchy i źródła są identyfikowane po GUID, więc przesunięcie ścieżek w projekcie niczego nie zmienia (poza kolejnością w `monitors`, jeśli przesunięto odsłuch).
 - Gdy subskrybowany odsłuch przestaje istnieć (ścieżka usunięta, nazwa zmieniona na taką bez prefiksu, przełączenie projektu), serwer wysyła najpierw nowe `monitors`, a potem:
 
@@ -162,7 +200,8 @@ Rozszerzenie wykrywa zmiany przez ukrytą powierzchnię kontrolną (`CSURF_EXT_S
 | `unsupported_version` | `protocolVersion` w `hello` inny niż wersja serwera; serwer zamyka połączenie |
 | `bad_password` | złe hasło w `hello`; serwer zamyka połączenie |
 | `unknown_type` | nieznany `type` po `welcome` |
-| `not_found` | nieznany GUID odsłuchu (np. w `subscribe`) albo źródło, którego odsłuch nie ma (`set_level`) |
+| `not_found` | nieznany GUID odsłuchu (np. w `subscribe`, `set_output_level`) albo źródło, którego odsłuch nie ma (`set_level`) |
+| `output_unavailable` | `set_output_level` dla odsłuchu, który nie ma dokładnie jednego hardware sendu (`output.status` to `missing` albo `multiple`) |
 
 ## Wspólne przykłady (test kontraktu)
 
@@ -175,14 +214,14 @@ Format pliku:
   "description": "co pokazuje ten przykład",
   "project": { "tracks": [{ "guid": "{…}", "name": "Odsłuch: Wokal" }] },
   "steps": [
-    { "client": { "type": "hello", "protocolVersion": 1 } },
-    { "server": { "type": "welcome", "protocolVersion": 1 } }
+    { "client": { "type": "hello", "protocolVersion": 2 } },
+    { "server": { "type": "welcome", "protocolVersion": 2 } }
   ]
 }
 ```
 
 - `settings` (opcjonalne) — ustawienia Rozszerzenia, np. `{ "password": "próba2026" }`. Bez tego pola hasło jest puste.
-- `project` — stan projektu REAPERa, na którym stoi serwer (fałszywy projekt w testach Rozszerzenia). Ścieżka może mieć opcjonalne `receives`: `[{ "source": "<GUID ścieżki-źródła>", "level": 0.5 }]` w kolejności receive'ów.
+- `project` — stan projektu REAPERa, na którym stoi serwer (fałszywy projekt w testach Rozszerzenia). Ścieżka może mieć opcjonalne `receives`: `[{ "source": "<GUID ścieżki-źródła>", "level": 0.5 }]` w kolejności receive'ów oraz opcjonalne `hardwareSends`: `[{ "level": 0.5 }]` (hardware sendy ścieżki).
 - `steps` — wiadomości w kolejności: `client` wysyła klient, `server` wysyła serwer. Krok `client` podany jako string jest wysyłany dosłownie (do przykładów z niepoprawnym JSON-em). Krok `{ "closed": true }` znaczy, że serwer zamyka połączenie.
 - Krok `project` (obiekt jak `project` wyżej) to zmiana w REAPERze: od tego miejsca projekt ma dokładnie taki stan (np. dodana ścieżka, zmieniona nazwa, inny projekt). Test Rozszerzenia podmienia fałszywy projekt i zgłasza zmianę; fałszywy serwer Aplikacji czeka w tym miejscu, aż test pozwoli mu iść dalej.
 - Dopasowanie wiadomości: każde pole z przykładu musi wystąpić w prawdziwej wiadomości z tą samą wartością; obiekty mogą mieć dodatkowe pola (np. `message` w `error`), a tablice muszą mieć te same elementy w tej samej kolejności.

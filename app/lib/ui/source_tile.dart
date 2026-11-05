@@ -21,9 +21,23 @@ class SourceTile extends StatefulWidget {
     required this.onLevel,
     this.enabled = true,
     this.onGesture,
+    this.sliderKey,
+    this.highlighted = false,
+    this.levelAvailable = true,
   });
 
   final Source source;
+
+  /// Key of the slider; defaults to `level-<source id>`.
+  final Key? sliderKey;
+
+  /// Draws the tile as the Master: set apart from the sources.
+  final bool highlighted;
+
+  /// False when there is no level to show or set (the Master of a monitor
+  /// without exactly one hardware send): the level reads "—" and the tile is
+  /// disabled whatever [enabled] says.
+  final bool levelAvailable;
 
   /// Whether the musician can change the level now.
   final bool enabled;
@@ -141,7 +155,7 @@ class _SourceTileState extends State<SourceTile> {
   @override
   void didUpdateWidget(SourceTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.enabled) _interruptDrag();
+    if (!widget.enabled || !widget.levelAvailable) _interruptDrag();
   }
 
   @override
@@ -153,17 +167,22 @@ class _SourceTileState extends State<SourceTile> {
   @override
   Widget build(BuildContext context) {
     final source = widget.source;
-    final enabled = widget.enabled;
-    return ListTile(
+    final enabled = widget.enabled && widget.levelAvailable;
+    final tile = ListTile(
       enabled: enabled,
-      title: Text(source.name),
-      trailing: Text(formatLevelDb(_level)),
+      title: Text(
+        source.name,
+        style: widget.highlighted
+            ? const TextStyle(fontWeight: FontWeight.bold)
+            : null,
+      ),
+      trailing: Text(widget.levelAvailable ? formatLevelDb(_level) : '—'),
       subtitle: GestureDetector(
         onDoubleTap: enabled ? _reset : null,
         child: KeyedSubtree(
           key: ValueKey(_sliderGeneration),
           child: Slider(
-            key: Key('level-${source.id}'),
+            key: widget.sliderKey ?? Key('level-${source.id}'),
             // Tapping the track must not jump the level: a press held past
             // kPressTimeout would reach REAPER before a double tap is known.
             allowedInteraction: SliderInteraction.slideOnly,
@@ -186,6 +205,11 @@ class _SourceTileState extends State<SourceTile> {
           ),
         ),
       ),
+    );
+    if (!widget.highlighted) return tile;
+    return Material(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: tile,
     );
   }
 }

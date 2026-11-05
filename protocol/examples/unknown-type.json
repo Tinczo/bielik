@@ -2,8 +2,8 @@
   "description": "After the handshake an unknown message type gets an error and the connection stays open.",
   "project": { "tracks": [] },
   "steps": [
-    { "client": { "type": "hello", "protocolVersion": 1 } },
-    { "server": { "type": "welcome", "protocolVersion": 1 } },
+    { "client": { "type": "hello", "protocolVersion": 2 } },
+    { "server": { "type": "welcome", "protocolVersion": 2 } },
     { "server": { "type": "monitors", "monitors": [] } },
     { "client": { "type": "make_coffee" } },
     { "server": { "type": "error", "code": "unknown_type" } },

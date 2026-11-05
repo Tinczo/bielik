@@ -16,6 +16,10 @@ _Avoid_: kanał, wejście, instrument
 Jak głośno dane źródło gra w danym odsłuchu. Każdy odsłuch ma własne poziomy, więc ściszenie gitary w jednym odsłuchu nie zmienia jej w innym.
 _Avoid_: kanał, suwak, send (send to mechanizm REAPERa, którym poziom jest realizowany)
 
+**Master**:
+Głośność całego odsłuchu: poziom jedynego hardware sendu (wyjścia sprzętowego) ścieżki-odsłuchu, a nie fader tej ścieżki. Poprawnie skonfigurowany odsłuch ma dokładnie jeden hardware send; przy braku albo nadmiarze Master jest niedostępny. W protokole: `output`.
+_Avoid_: wyjście, głośność główna, fader odsłuchu
+
 ## Elementy systemu
 
 **Rozszerzenie**:

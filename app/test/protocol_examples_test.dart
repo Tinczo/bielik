@@ -70,6 +70,53 @@ void main() {
     );
   });
 
+  test('set_output_level matches the output example', () {
+    final setOutputLevel = loadProtocolExample('output.json').steps
+        .map((step) => step['client'])
+        .whereType<Map<String, dynamic>>()
+        .singleWhere((message) => message['type'] == 'set_output_level');
+    expect(
+      matchesExample(
+        setOutputLevel,
+        setOutputLevelMessage(
+          monitorId: setOutputLevel['monitorId'] as String,
+          level: (setOutputLevel['level'] as num).toDouble(),
+        ),
+      ),
+      isTrue,
+    );
+  });
+
+  test('the output example decodes to ok with a level, then a level push', () {
+    final messages = loadProtocolExample('output.json')
+        .serverMessages
+        .map(ServerMessage.fromJson)
+        .toList();
+    final monitor = messages.whereType<MonitorMessage>().single.monitor;
+    expect(monitor.output.status, OutputStatus.ok);
+    expect(monitor.output.level, 0.5);
+    expect(
+      messages.whereType<OutputLevelMessage>().map((m) => m.level),
+      [0.25, 1.0],
+    );
+  });
+
+  test('the unavailable example decodes missing and multiple without level',
+      () {
+    final monitors = loadProtocolExample('output-unavailable.json')
+        .serverMessages
+        .map(ServerMessage.fromJson)
+        .whereType<MonitorMessage>()
+        .map((m) => m.monitor.output)
+        .toList();
+    expect(monitors.map((o) => o.status), [
+      OutputStatus.multiple,
+      OutputStatus.missing,
+      OutputStatus.ok,
+    ]);
+    expect(monitors.first.level, isNull);
+  });
+
   test('monitors from the handshake example are decoded in order', () {
     final monitors = loadProtocolExample('handshake.json')
         .serverMessages

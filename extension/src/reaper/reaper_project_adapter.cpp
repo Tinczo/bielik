@@ -8,6 +8,7 @@ namespace {
 
 constexpr ReaProject* kActiveProject = nullptr;
 constexpr int kReceives = -1;  // send category of receives
+constexpr int kHardwareSends = 1;  // send category of hardware outputs
 
 std::string guidOf(MediaTrack* track) {
   char guid[64] = {};
@@ -132,6 +133,29 @@ bool ReaperProjectAdapter::setReceiveLevel(const std::string& trackGuid,
     return true;
   }
   return false;
+}
+
+std::vector<HardwareSend> ReaperProjectAdapter::hardwareSends(const std::string& trackGuid) const {
+  std::vector<HardwareSend> result;
+  MediaTrack* track = findTrack(trackGuid);
+  if (!track) return result;
+  const int count = GetTrackNumSends(track, kHardwareSends);
+  for (int i = 0; i < count; ++i) {
+    result.push_back({GetTrackSendInfo_Value(track, kHardwareSends, i, "D_VOL")});
+  }
+  return result;
+}
+
+bool ReaperProjectAdapter::setHardwareSendLevel(const std::string& trackGuid, int index,
+                                                double level) {
+  MediaTrack* track = findTrack(trackGuid);
+  if (!track || index < 0 || index >= GetTrackNumSends(track, kHardwareSends)) return false;
+  // SetTrackSendUIVol addresses receives and sends only; hardware outputs are written
+  // through their D_VOL, which adds no undo point either. Marked dirty like receive
+  // writes, so a mix set from the phones is not lost on close.
+  if (!SetTrackSendInfo_Value(track, kHardwareSends, index, "D_VOL", level)) return false;
+  MarkProjectDirty(kActiveProject);
+  return true;
 }
 
 }  // namespace rmm

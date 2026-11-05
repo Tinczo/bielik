@@ -14,6 +14,7 @@
 #define REAPERAPI_WANT_GetSetTrackSendInfo
 #define REAPERAPI_WANT_GetTrackSendInfo_Value
 #define REAPERAPI_WANT_SetTrackSendUIVol
+#define REAPERAPI_WANT_SetTrackSendInfo_Value
 #define REAPERAPI_WANT_ShowConsoleMsg
 #define REAPERAPI_WANT_EnumProjects
 #define REAPERAPI_WANT_GetProjectStateChangeCount

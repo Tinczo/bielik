@@ -17,7 +17,7 @@ namespace rmm {
 using ClientId = std::uint64_t;
 
 // Version of the wire protocol described in docs/protocol.md.
-inline constexpr int kProtocolVersion = 1;
+inline constexpr int kProtocolVersion = 2;
 
 // Monitors core: builds the monitors model from the project and handles protocol
 // messages. Knows neither the REAPER API nor sockets; everything runs on the main thread.
@@ -56,6 +56,7 @@ class MonitorCore {
   };
 
   void handleSetLevel(ClientId client, const nlohmann::json& message);
+  void handleSetOutputLevel(ClientId client, const nlohmann::json& message);
   void sendMonitors(ClientId client, std::vector<Monitor> monitors);
   void sendMonitor(ClientId client, MonitorState monitor);
   void subscribedMonitorChanged(ClientId client);
@@ -76,6 +77,12 @@ class MonitorCore {
     double level;
   };
   std::vector<PendingLevel> pendingLevels_;  // at most one per receive, in arrival order
+
+  struct PendingOutputLevel {
+    std::string monitorId;
+    double level;
+  };
+  std::vector<PendingOutputLevel> pendingOutputLevels_;  // at most one per monitor
 };
 
 }  // namespace rmm

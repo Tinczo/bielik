@@ -147,6 +147,16 @@ class MixerClient {
     _showLevel(sourceId, level);
   }
 
+  /// Sets the Master (hardware send level) of the subscribed monitor. The new
+  /// level shows in [monitor] at once; the server echoes it back later. Does
+  /// nothing while the monitor has no single hardware send.
+  void setOutputLevel(double level) {
+    final current = monitor.value;
+    if (current == null || !current.output.available) return;
+    _send(setOutputLevelMessage(monitorId: current.id, level: level));
+    monitor.value = current.withOutputLevel(level);
+  }
+
   /// Puts a source's new level into [monitor], whoever changed it.
   void _showLevel(String sourceId, double level) {
     monitor.value = monitor.value?.withLevel(sourceId, level);
@@ -230,6 +240,13 @@ class MixerClient {
         if (monitor.id == _subscribedMonitorId) this.monitor.value = monitor;
       case LevelMessage(:final monitorId, :final sourceId, :final level):
         if (monitorId == _subscribedMonitorId) _showLevel(sourceId, level);
+      case OutputLevelMessage(:final monitorId, :final level):
+        if (monitorId == _subscribedMonitorId) {
+          final current = monitor.value;
+          if (current != null && current.output.available) {
+            monitor.value = current.withOutputLevel(level);
+          }
+        }
       case MonitorRemovedMessage(:final monitorId):
         if (monitorId == _subscribedMonitorId) _endSubscription();
       case ErrorMessage(:final code, :final message):

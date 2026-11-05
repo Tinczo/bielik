@@ -1,12 +1,24 @@
 import 'package:flutter/widgets.dart';
 
-/// One gesture of the musician on one source: its level before and after.
+/// One gesture of the musician on one source, or on the Master: its level
+/// before and after.
 class LevelStep {
   const LevelStep({
     required this.sourceId,
     required this.before,
     required this.after,
   });
+
+  /// A gesture on the Master.
+  const LevelStep.output({required this.before, required this.after})
+    : sourceId = outputId;
+
+  /// Stands for the Master where a source id is expected; source ids are
+  /// track GUIDs in braces, so it never collides with one.
+  static const outputId = 'output';
+
+  /// Whether this step changed the Master.
+  bool get isOutput => sourceId == outputId;
 
   final String sourceId;
   final double before;

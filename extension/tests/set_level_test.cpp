@@ -37,7 +37,7 @@ TEST_CASE("set_level messages for one receive within one timer tick write only t
   REQUIRE(server.start());
   TestClient client(port);
   REQUIRE(client.isOpen());
-  client.send(R"({"type":"hello","protocolVersion":1})");
+  client.send(R"({"type":"hello","protocolVersion":2})");
   REQUIRE(client.nextMessage(server));  // welcome
   REQUIRE(client.nextMessage(server));  // monitors
 
@@ -57,5 +57,63 @@ TEST_CASE("set_level messages for one receive within one timer tick write only t
   }
   CHECK(writesBySource[kGuitar] == std::vector<double>{0.7});
   CHECK(writesBySource[kVocals] == std::vector<double>{0.5});
+  server.stop();
+}
+
+namespace {
+
+std::string setOutputLevel(const std::string& monitorId, double level) {
+  return json{{"type", "set_output_level"}, {"monitorId", monitorId}, {"level", level}}.dump();
+}
+
+}  // namespace
+
+TEST_CASE("set_output_level messages within one timer tick write only the last value") {
+  FakeProject project;
+  project.trackList = {{kMonitor, "Odsłuch: Wokal"}};
+  project.hardwareSendLists[kMonitor] = {{1.0}};
+
+  const int port = nextTestPort();
+  MixerServer server(project, port, "127.0.0.1");
+  REQUIRE(server.start());
+  TestClient client(port);
+  REQUIRE(client.isOpen());
+  client.send(R"({"type":"hello","protocolVersion":2})");
+  REQUIRE(client.nextMessage(server));  // welcome
+  REQUIRE(client.nextMessage(server));  // monitors
+
+  client.send(setOutputLevel(kMonitor, 0.9));
+  client.send(setOutputLevel(kMonitor, 0.4));
+  client.send(setOutputLevel(kMonitor, 0.2));
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  server.pump();
+
+  REQUIRE(project.hardwareSendWrites.size() == 1);
+  CHECK(project.hardwareSendWrites[0].trackGuid == kMonitor);
+  CHECK(project.hardwareSendWrites[0].index == 0);
+  CHECK(project.hardwareSendWrites[0].level == 0.2);
+  server.stop();
+}
+
+TEST_CASE("set_output_level writes nothing when the monitor has two hardware sends") {
+  FakeProject project;
+  project.trackList = {{kMonitor, "Odsłuch: Wokal"}};
+  project.hardwareSendLists[kMonitor] = {{1.0}, {0.5}};
+
+  const int port = nextTestPort();
+  MixerServer server(project, port, "127.0.0.1");
+  REQUIRE(server.start());
+  TestClient client(port);
+  REQUIRE(client.isOpen());
+  client.send(R"({"type":"hello","protocolVersion":2})");
+  REQUIRE(client.nextMessage(server));  // welcome
+  REQUIRE(client.nextMessage(server));  // monitors
+
+  client.send(setOutputLevel(kMonitor, 0.5));
+  const auto reply = client.nextMessage(server);
+  REQUIRE(reply.has_value());
+  CHECK(json::parse(*reply)["code"] == "output_unavailable");
+  server.pump();
+  CHECK(project.hardwareSendWrites.empty());
   server.stop();
 }
